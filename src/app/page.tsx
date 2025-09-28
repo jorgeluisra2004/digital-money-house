@@ -1,8 +1,18 @@
-export default function Home() {
+import Header from "@/components/Navbar";
+import Hero from "@/components/Hero";
+
+export default function Page() {
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-4xl font-bold">Digital Money House</h1>
-      <p className="mt-4">Tu billetera virtual</p>
-    </main>
+    <>
+      <Header />
+      <main>
+        <Hero />
+      </main>
+      <footer className="bg-dmh-grayFooter text-gray-300 py-4">
+        <div className="max-w-6xl mx-auto px-6 lg:px-20">
+          <p className="text-sm">© 2022 Digital Money House</p>
+        </div>
+      </footer>
+    </>
   );
 }

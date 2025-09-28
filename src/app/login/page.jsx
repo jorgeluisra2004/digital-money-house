@@ -1,0 +1,277 @@
+// app/login/page.jsx
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
+
+/* --- Schemas --- */
+const emailSchema = z.object({
+  email: z.string().email("Correo inválido"),
+});
+
+const passwordSchema = z.object({
+  password: z.string().min(6, "Mínimo 6 caracteres"),
+});
+
+const codeSchema = z.object({
+  code: z.string().length(6, "El código debe tener 6 dígitos"),
+});
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [step, setStep] = useState(1); // 1 = email only, 2 = password, 3 = code (cuando corresponda)
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [userId, setUserId] = useState(null);
+  const [firstLogin, setFirstLogin] = useState(false);
+
+  const emailForm = useForm({ resolver: zodResolver(emailSchema) });
+  const passwordForm = useForm({ resolver: zodResolver(passwordSchema) });
+  const codeForm = useForm({ resolver: zodResolver(codeSchema) });
+
+  /* Paso 1: sólo email */
+  const handleEmailSubmit = async (data) => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: data.email }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Error");
+
+      setEmail(data.email); // 👈 siempre guardo el email
+
+      if (!result.exists) {
+        toast.error("No existe una cuenta con ese e-mail. Podés crear una.");
+        // redirigir opcionalmente
+        return;
+      }
+
+      setUserId(result.userId ?? null);
+      setFirstLogin(Boolean(result.firstLogin));
+      setStep(2);
+    } catch (err) {
+      toast.error(err.message || "Error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* Paso 2: password (se ingresa siempre; si es firstLogin, backend enviará código) */
+  const handlePasswordSubmit = async (data) => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: data.password }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Error al iniciar sesión");
+
+      if (result.needsVerification) {
+        toast.success(
+          "Contraseña correcta. Te enviamos un código al correo 📧"
+        );
+        setStep(3); // pedir código
+      } else {
+        toast.success("Login exitoso 🎉");
+        // aqui podrías establecer cookies/session token si tu endpoint lo devuelve
+        router.push("/dashboard");
+      }
+    } catch (err) {
+      toast.error(err.message || "Error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* Paso 3: verificar código */
+  const handleCodeSubmit = async (data) => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: data.code }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Código incorrecto");
+
+      toast.success("Código verificado. Bienvenido 🎉");
+      router.push("/dashboard");
+    } catch (err) {
+      toast.error(err.message || "Error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="h-screen flex items-center justify-center bg-[var(--dmh-black)] px-4">
+      <div className="w-full max-w-sm text-center">
+        <AnimatePresence mode="wait">
+          {/* ---------- STEP 1: sólo email ---------- */}
+          {step === 1 && (
+            <motion.form
+              key="step1"
+              onSubmit={emailForm.handleSubmit(handleEmailSubmit)}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ duration: 0.25 }}
+              className="flex flex-col items-center gap-4"
+            >
+              <h2 className="text-base font-semibold mb-2 text-white">
+                ¡Hola! Ingresá tu e-mail
+              </h2>
+
+              <input
+                type="email"
+                placeholder="Correo electrónico"
+                {...emailForm.register("email")}
+                className="w-full p-3 rounded-lg text-black bg-white focus:outline-none focus:ring-2 focus:ring-[var(--dmh-lime)]"
+              />
+              {emailForm.formState.errors.email && (
+                <p className="text-red-500 text-sm">
+                  {emailForm.formState.errors.email.message}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 rounded-lg font-semibold bg-[var(--dmh-lime)] hover:bg-[var(--dmh-lime-dark)] text-black transition shadow-md disabled:opacity-60"
+              >
+                {loading ? "Comprobando..." : "Continuar"}
+              </button>
+
+              <Link href="/register" className="w-full">
+                <button
+                  type="button"
+                  className="w-full mt-2 py-3 rounded-lg font-semibold bg-gray-300 text-black transition shadow-sm"
+                >
+                  Crear cuenta
+                </button>
+              </Link>
+            </motion.form>
+          )}
+
+          {/* ---------- STEP 2: contraseña ---------- */}
+          {step === 2 && (
+            <motion.form
+              key="step2"
+              onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ duration: 0.25 }}
+              className="flex flex-col items-center gap-3"
+            >
+              <h2 className="text-base font-semibold mb-2 text-white">
+                Ingresá tu contraseña
+              </h2>
+
+              <p className="text-sm text-gray-400 mb-1">
+                {firstLogin
+                  ? "Es tu primer ingreso: después de la contraseña te pediremos un código."
+                  : "Ingresá tu contraseña para continuar."}
+              </p>
+
+              <input
+                type="password"
+                placeholder="Contraseña"
+                {...passwordForm.register("password")}
+                className="w-full p-3 rounded-lg text-black bg-white focus:outline-none focus:ring-2 focus:ring-[var(--dmh-lime)]"
+              />
+              {passwordForm.formState.errors.password && (
+                <p className="text-red-500 text-sm">
+                  {passwordForm.formState.errors.password.message}
+                </p>
+              )}
+
+              <div className="w-full flex flex-col gap-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 rounded-lg font-semibold bg-[var(--dmh-lime)] hover:bg-[var(--dmh-lime-dark)] text-black transition shadow-md disabled:opacity-60"
+                >
+                  {loading ? "Verificando..." : "Continuar"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="w-full py-3 rounded-lg font-medium bg-transparent border border-gray-600 text-white"
+                >
+                  Volver
+                </button>
+              </div>
+            </motion.form>
+          )}
+
+          {/* ---------- STEP 3: código (solo si backend indicó needsVerification) ---------- */}
+          {step === 3 && (
+            <motion.form
+              key="step3"
+              onSubmit={codeForm.handleSubmit(handleCodeSubmit)}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ duration: 0.25 }}
+              className="flex flex-col items-center gap-3"
+            >
+              <h2 className="text-base font-semibold mb-2 text-white">
+                Ingresá el código que te enviamos
+              </h2>
+              <p className="text-sm text-gray-400 mb-1">
+                Revisá tu correo ({email}). El código vence en 10 minutos.
+              </p>
+
+              <input
+                type="text"
+                placeholder="Código de 6 dígitos"
+                {...codeForm.register("code")}
+                className="w-full p-3 rounded-lg text-black bg-white focus:outline-none focus:ring-2 focus:ring-[var(--dmh-lime)]"
+              />
+              {codeForm.formState.errors.code && (
+                <p className="text-red-500 text-sm">
+                  {codeForm.formState.errors.code.message}
+                </p>
+              )}
+
+              <div className="w-full flex flex-col gap-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 rounded-lg font-semibold bg-[var(--dmh-lime)] hover:bg-[var(--dmh-lime-dark)] text-black transition shadow-md disabled:opacity-60"
+                >
+                  {loading ? "Verificando..." : "Verificar"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="w-full py-3 rounded-lg font-medium bg-transparent border border-gray-600 text-white"
+                >
+                  Volver
+                </button>
+              </div>
+            </motion.form>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
