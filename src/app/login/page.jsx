@@ -1,4 +1,3 @@
-// app/login/page.jsx
 "use client";
 
 import Link from "next/link";
@@ -25,7 +24,7 @@ const codeSchema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1); // 1 = email only, 2 = password, 3 = code (cuando corresponda)
+  const [step, setStep] = useState(1); // 1 = email only, 2 = password, 3 = code
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState(null);
@@ -35,7 +34,7 @@ export default function LoginPage() {
   const passwordForm = useForm({ resolver: zodResolver(passwordSchema) });
   const codeForm = useForm({ resolver: zodResolver(codeSchema) });
 
-  /* Paso 1: sólo email */
+  /* -------- Paso 1: sólo email -------- */
   const handleEmailSubmit = async (data) => {
     setLoading(true);
     try {
@@ -48,11 +47,10 @@ export default function LoginPage() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.message || "Error");
 
-      setEmail(data.email); // 👈 siempre guardo el email
+      setEmail(data.email);
 
       if (!result.exists) {
         toast.error("No existe una cuenta con ese e-mail. Podés crear una.");
-        // redirigir opcionalmente
         return;
       }
 
@@ -66,7 +64,7 @@ export default function LoginPage() {
     }
   };
 
-  /* Paso 2: password (se ingresa siempre; si es firstLogin, backend enviará código) */
+  /* -------- Paso 2: password -------- */
   const handlePasswordSubmit = async (data) => {
     setLoading(true);
     try {
@@ -83,11 +81,10 @@ export default function LoginPage() {
         toast.success(
           "Contraseña correcta. Te enviamos un código al correo 📧"
         );
-        setStep(3); // pedir código
+        setStep(3);
       } else {
         toast.success("Login exitoso 🎉");
-        // aqui podrías establecer cookies/session token si tu endpoint lo devuelve
-        router.push("/dashboard");
+        router.push("/home");
       }
     } catch (err) {
       toast.error(err.message || "Error");
@@ -96,7 +93,7 @@ export default function LoginPage() {
     }
   };
 
-  /* Paso 3: verificar código */
+  /* -------- Paso 3: verificar código -------- */
   const handleCodeSubmit = async (data) => {
     setLoading(true);
     try {
@@ -110,7 +107,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(result.message || "Código incorrecto");
 
       toast.success("Código verificado. Bienvenido 🎉");
-      router.push("/dashboard");
+      router.push("/home");
     } catch (err) {
       toast.error(err.message || "Error");
     } finally {
@@ -122,7 +119,7 @@ export default function LoginPage() {
     <div className="h-screen flex items-center justify-center bg-[var(--dmh-black)] px-4">
       <div className="w-full max-w-sm text-center">
         <AnimatePresence mode="wait">
-          {/* ---------- STEP 1: sólo email ---------- */}
+          {/* -------- STEP 1: email -------- */}
           {step === 1 && (
             <motion.form
               key="step1"
@@ -168,7 +165,7 @@ export default function LoginPage() {
             </motion.form>
           )}
 
-          {/* ---------- STEP 2: contraseña ---------- */}
+          {/* -------- STEP 2: password -------- */}
           {step === 2 && (
             <motion.form
               key="step2"
@@ -221,7 +218,7 @@ export default function LoginPage() {
             </motion.form>
           )}
 
-          {/* ---------- STEP 3: código (solo si backend indicó needsVerification) ---------- */}
+          {/* -------- STEP 3: código -------- */}
           {step === 3 && (
             <motion.form
               key="step3"
