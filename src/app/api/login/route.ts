@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
+import { supabaseAdmin } from "../../../lib/supabaseAdmin"; // ⚠️ Cambiado desde getSupabaseAdmin
 import { checkEnv } from "@/lib/envCheck";
 
 export async function POST(req: Request) {
@@ -18,15 +18,6 @@ export async function POST(req: Request) {
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const supabaseAdmin = getSupabaseAdmin();
-
-    if (!supabaseAdmin) {
-      console.error("❌ SupabaseAdmin no inicializado");
-      return NextResponse.json(
-        { success: false, message: "Error interno de base de datos" },
-        { status: 500 }
-      );
-    }
 
     const body = (await req.json()) as {
       email?: string;
@@ -135,9 +126,11 @@ export async function POST(req: Request) {
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
       const expires_at = new Date(Date.now() + 10 * 60 * 1000);
 
-      await supabaseAdmin.from("email_codes").insert([
-        { email, code: String(verificationCode), expires_at, used: false },
-      ]);
+      await supabaseAdmin
+        .from("email_codes")
+        .insert([
+          { email, code: String(verificationCode), expires_at, used: false },
+        ]);
 
       await resend.emails.send({
         from: "onboarding@resend.dev",
@@ -178,9 +171,6 @@ export async function POST(req: Request) {
 
     const message = err instanceof Error ? err.message : "Error interno";
 
-    return NextResponse.json(
-      { success: false, message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }

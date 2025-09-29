@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin"; // ⚠️ Cambiado desde getSupabaseAdmin
 import bcrypt from "bcryptjs";
 
 /**
@@ -9,8 +9,6 @@ import bcrypt from "bcryptjs";
  */
 export async function POST(req: Request) {
   try {
-    const supabaseAdmin = getSupabaseAdmin();
-
     if (!supabaseAdmin) {
       return NextResponse.json(
         { message: "Servicio temporalmente no disponible ⚠️" },

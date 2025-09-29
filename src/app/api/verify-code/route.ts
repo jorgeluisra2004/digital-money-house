@@ -1,11 +1,9 @@
 // app/api/verify-code/route.ts
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(req: Request) {
   try {
-    const supabaseAdmin = getSupabaseAdmin();
-
     if (!supabaseAdmin) {
       return NextResponse.json(
         { message: "Servicio temporalmente no disponible ⚠️" },
@@ -43,7 +41,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Código expirado" }, { status: 400 });
     }
 
-    // Marcar código como usado
+    // Marcar código como usado (no bloqueante)
     const { error: markUsedError } = await supabaseAdmin
       .from("email_codes")
       .update({ used: true })
