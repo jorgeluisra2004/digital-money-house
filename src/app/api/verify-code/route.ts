@@ -1,6 +1,9 @@
 // app/api/verify-code/route.ts
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { checkEnv } from "@/lib/envCheck";
+
+checkEnv(); 
 
 export async function POST(req: Request) {
   try {

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import bcrypt from "bcryptjs";
+import { checkEnv } from "@/lib/envCheck";
+
+checkEnv(); 
 
 export async function POST(req: Request) {
   try {
