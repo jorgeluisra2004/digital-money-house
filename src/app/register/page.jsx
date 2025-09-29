@@ -194,7 +194,7 @@ export default function RegisterPage() {
               </button>
 
               <p className="text-xs text-gray-400 mt-2">
-                Usa entre 6 y 20 caracteres, incluyendo al menos una mayúscula,
+                Debes usar entre 6 y 20 caracteres, incluyendo al menos una mayúscula,
                 un número y un carácter especial.
               </p>
             </motion.form>
