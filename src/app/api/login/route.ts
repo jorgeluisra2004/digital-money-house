@@ -4,13 +4,13 @@ import { Resend } from "resend";
 import bcrypt from "bcryptjs";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -18,9 +18,9 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const email = body.email?.toLowerCase().trim();
-    const password = body.password || null;
-    const code = body.code || null;
+    const email: string | null = body.email?.toLowerCase().trim() || null;
+    const password: string | null = body.password || null;
+    const code: string | null = body.code || null;
 
     if (!email) {
       return NextResponse.json(
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
 
       // 🔹 Login definitivo con Auth
       const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({ email, password });
+        await supabase.auth.signInWithPassword({ email, password: password! });
 
       if (authError || !authData.session) {
         return NextResponse.json(
@@ -137,9 +137,11 @@ export async function POST(req: Request) {
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
       const expires_at = new Date(Date.now() + 10 * 60 * 1000);
 
-      await supabaseAdmin.from("email_codes").insert([
-        { email, code: String(verificationCode), expires_at, used: false },
-      ]);
+      await supabaseAdmin
+        .from("email_codes")
+        .insert([
+          { email, code: String(verificationCode), expires_at, used: false },
+        ]);
 
       await resend.emails.send({
         from: "onboarding@resend.dev",
@@ -186,10 +188,12 @@ export async function POST(req: Request) {
       token: authData.session.access_token,
       user: { id: authData.user?.id, email: authData.user?.email },
     });
-  } catch (err: any) {
-    console.error("Error /api/login:", err);
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("Error /api/login:", error.message);
+
     return NextResponse.json(
-      { success: false, message: err.message || "Error interno" },
+      { success: false, message: error.message || "Error interno" },
       { status: 500 }
     );
   }
