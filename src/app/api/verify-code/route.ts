@@ -62,7 +62,7 @@ export async function POST(req: Request) {
 
     if (updateError) {
       console.warn(
-        "⚠️ No se pudo actualizar last_login tras verify-code:",
+        "No se pudo actualizar last_login tras verify-code:",
         updateError.message
       );
     }
