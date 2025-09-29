@@ -4,9 +4,9 @@ import { Resend } from "resend";
 import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 import { checkEnv } from "@/lib/envCheck";
 
-checkEnv(); 
 
 export async function POST(req: Request) {
+  checkEnv(); 
   try {
     // ✅ Validar variable de entorno en runtime
     if (!process.env.RESEND_API_KEY) {

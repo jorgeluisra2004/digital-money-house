@@ -3,9 +3,9 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import bcrypt from "bcryptjs";
 import { checkEnv } from "@/lib/envCheck";
 
-checkEnv(); 
 
 export async function POST(req: Request) {
+  checkEnv(); 
   try {
     const supabaseAdmin = getSupabaseAdmin(); // ✅ instancia segura en runtime
 

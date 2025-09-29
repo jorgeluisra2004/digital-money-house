@@ -3,9 +3,8 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { checkEnv } from "@/lib/envCheck";
 
-checkEnv(); 
-
 export async function POST(req: Request) {
+  checkEnv();
   try {
     const supabaseAdmin = getSupabaseAdmin(); // ✅ instancia segura en runtime
     const { email, code } = await req.json();
