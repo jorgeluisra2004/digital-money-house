@@ -55,11 +55,15 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ message: "Código verificado ✅" });
-  } catch (err: any) {
-    console.error("❌ Error en /api/verify-code:", err);
-    return NextResponse.json(
-      { message: err.message || "Error interno" },
-      { status: 500 }
-    );
+
+    // Ejemplo en login/register/verify-code:
+  } catch (err: unknown) {
+    console.error("❌ Error:", err);
+
+    if (err instanceof Error) {
+      return NextResponse.json({ message: err.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: "Error interno" }, { status: 500 });
   }
 }

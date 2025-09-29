@@ -157,10 +157,18 @@ export async function POST(req: Request) {
       message: "Login correcto",
       user: { id: user.id, email: user.email },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("❌ Error en /api/login:", err);
+
+    if (err instanceof Error) {
+      return NextResponse.json(
+        { success: false, message: err.message },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
-      { success: false, message: err.message || "Error interno" },
+      { success: false, message: "Error interno" },
       { status: 500 }
     );
   }

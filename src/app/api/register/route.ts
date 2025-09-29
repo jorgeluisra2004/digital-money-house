@@ -67,8 +67,16 @@ export async function POST(req: Request) {
       message: "Usuario creado correctamente ✅",
       user: userData,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("❌ Error en /api/register:", err);
-    return NextResponse.json({ message: err.message }, { status: 500 });
+
+    if (err instanceof Error) {
+      return NextResponse.json({ message: err.message }, { status: 500 });
+    }
+
+    return NextResponse.json(
+      { message: "Error interno en el servidor" },
+      { status: 500 }
+    );
   }
 }
