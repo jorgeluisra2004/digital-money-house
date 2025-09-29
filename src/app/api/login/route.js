@@ -182,7 +182,7 @@ export async function POST(req) {
       user: { id: authData.user?.id, email: authData.user?.email },
     });
   } catch (err) {
-    console.error("💥 Error /api/login:", err);
+    console.error("Error /api/login:", err);
     return NextResponse.json(
       { success: false, message: err.message || "Error interno" },
       { status: 500 }
