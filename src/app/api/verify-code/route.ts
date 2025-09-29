@@ -1,12 +1,18 @@
 // app/api/verify-code/route.ts
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { checkEnv } from "@/lib/envCheck";
 
 export async function POST(req: Request) {
-  checkEnv();
   try {
-    const supabaseAdmin = getSupabaseAdmin(); // ✅ instancia segura en runtime
+    const supabaseAdmin = getSupabaseAdmin();
+
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { message: "Servicio temporalmente no disponible ⚠️" },
+        { status: 503 }
+      );
+    }
+
     const { email, code } = await req.json();
 
     if (!email || !code) {
@@ -16,8 +22,8 @@ export async function POST(req: Request) {
     const normalizedEmail = email.toLowerCase().trim();
     const normalizedCode = String(code).trim();
 
-    // 🔹 Buscar código válido
-    const { data, error } = await supabaseAdmin
+    // Buscar código válido
+    const { data: codes, error } = await supabaseAdmin
       .from("email_codes")
       .select("*")
       .eq("email", normalizedEmail)
@@ -26,24 +32,31 @@ export async function POST(req: Request) {
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (error || !data || data.length === 0) {
+    if (error || !codes || codes.length === 0) {
       return NextResponse.json({ message: "Código inválido" }, { status: 400 });
     }
 
-    const record = data[0];
+    const record = codes[0];
 
-    // 🔹 Verificar expiración
+    // Verificar expiración
     if (new Date(record.expires_at) < new Date()) {
       return NextResponse.json({ message: "Código expirado" }, { status: 400 });
     }
 
-    // 🔹 Marcar código como usado
-    await supabaseAdmin
+    // Marcar código como usado
+    const { error: markUsedError } = await supabaseAdmin
       .from("email_codes")
       .update({ used: true })
       .eq("id", record.id);
 
-    // 🔹 Actualizar last_login en usuarios
+    if (markUsedError) {
+      console.warn(
+        "⚠️ No se pudo marcar el código como usado:",
+        markUsedError.message
+      );
+    }
+
+    // Actualizar last_login en usuarios (opcional, no bloqueante)
     const { error: updateError } = await supabaseAdmin
       .from("usuarios")
       .update({ last_login: new Date().toISOString() })
@@ -57,15 +70,12 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ message: "Código verificado ✅" });
-
-    // Ejemplo en login/register/verify-code:
   } catch (err: unknown) {
-    console.error("❌ Error:", err);
+    console.error("❌ Error en verify-code:", err);
 
-    if (err instanceof Error) {
-      return NextResponse.json({ message: err.message }, { status: 500 });
-    }
+    const message =
+      err instanceof Error ? err.message : "Error interno en el servidor";
 
-    return NextResponse.json({ message: "Error interno" }, { status: 500 });
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

@@ -1,18 +1,20 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const publicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+let supabase: SupabaseClient | null = null;
+
 if (!publicUrl || !anonKey) {
-  console.error("❌ Variables de entorno faltantes en supabaseClient:");
-  console.error("NEXT_PUBLIC_SUPABASE_URL:", publicUrl ? "OK" : "MISSING");
-  console.error(
+  // ⚠️ Avisamos pero no interrumpimos el build
+  console.warn("⚠️ Variables de entorno faltantes en supabaseClient:");
+  console.warn("NEXT_PUBLIC_SUPABASE_URL:", publicUrl ? "OK" : "MISSING");
+  console.warn(
     "NEXT_PUBLIC_SUPABASE_ANON_KEY:",
     anonKey ? `OK (${anonKey.slice(0, 5)}...)` : "MISSING"
   );
-  throw new Error(
-    "❌ Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  );
+} else {
+  supabase = createClient(publicUrl, anonKey);
 }
 
-export const supabase = createClient(publicUrl, anonKey);
+export { supabase };

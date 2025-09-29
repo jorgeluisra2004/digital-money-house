@@ -8,13 +8,16 @@ export function getSupabaseAdmin() {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!url || !serviceRoleKey) {
-      console.error("❌ Variables de entorno faltantes en supabaseAdmin:");
-      console.error("SUPABASE_URL:", url ? "OK" : "MISSING");
-      console.error(
+      // ⚠️ Solo mostramos un warning en vez de romper el build
+      console.warn("⚠️ Variables de entorno faltantes en supabaseAdmin:");
+      console.warn("SUPABASE_URL:", url ? "OK" : "MISSING");
+      console.warn(
         "SUPABASE_SERVICE_ROLE_KEY:",
         serviceRoleKey ? `OK (${serviceRoleKey.slice(0, 5)}...)` : "MISSING"
       );
-      throw new Error("❌ Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY");
+
+      // Retornamos null para que el código que lo use pueda manejarlo
+      return null;
     }
 
     supabaseAdmin = createClient(url, serviceRoleKey);

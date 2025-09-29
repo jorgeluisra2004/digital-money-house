@@ -4,11 +4,11 @@ import { Resend } from "resend";
 import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 import { checkEnv } from "@/lib/envCheck";
 
-
 export async function POST(req: Request) {
-  checkEnv(); 
   try {
-    // ✅ Validar variable de entorno en runtime
+    // ✅ Validar envs críticas
+    checkEnv();
+
     if (!process.env.RESEND_API_KEY) {
       console.error("❌ Falta RESEND_API_KEY en variables de entorno");
       return NextResponse.json(
@@ -18,12 +18,25 @@ export async function POST(req: Request) {
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const supabaseAdmin = getSupabaseAdmin(); // ✅ instancia segura en runtime
+    const supabaseAdmin = getSupabaseAdmin();
 
-    const body = await req.json();
-    const email = body.email?.toLowerCase().trim() || null;
-    const password = body.password || null;
-    const code = body.code || null;
+    if (!supabaseAdmin) {
+      console.error("❌ SupabaseAdmin no inicializado");
+      return NextResponse.json(
+        { success: false, message: "Error interno de base de datos" },
+        { status: 500 }
+      );
+    }
+
+    const body = (await req.json()) as {
+      email?: string;
+      password?: string;
+      code?: string;
+    };
+
+    const email = body.email?.toLowerCase().trim();
+    const password = body.password ?? null;
+    const code = body.code ?? null;
 
     if (!email) {
       return NextResponse.json(
@@ -74,13 +87,11 @@ export async function POST(req: Request) {
         );
       }
 
-      // Marcar código como usado
       await supabaseAdmin
         .from("email_codes")
         .update({ used: true })
         .eq("id", codeData.id);
 
-      // Actualizar last_login
       await supabaseAdmin
         .from("usuarios")
         .update({ last_login: new Date().toISOString() })
@@ -124,11 +135,9 @@ export async function POST(req: Request) {
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
       const expires_at = new Date(Date.now() + 10 * 60 * 1000);
 
-      await supabaseAdmin
-        .from("email_codes")
-        .insert([
-          { email, code: String(verificationCode), expires_at, used: false },
-        ]);
+      await supabaseAdmin.from("email_codes").insert([
+        { email, code: String(verificationCode), expires_at, used: false },
+      ]);
 
       await resend.emails.send({
         from: "onboarding@resend.dev",
@@ -167,15 +176,10 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     console.error("❌ Error en /api/login:", err);
 
-    if (err instanceof Error) {
-      return NextResponse.json(
-        { success: false, message: err.message },
-        { status: 500 }
-      );
-    }
+    const message = err instanceof Error ? err.message : "Error interno";
 
     return NextResponse.json(
-      { success: false, message: "Error interno" },
+      { success: false, message },
       { status: 500 }
     );
   }
