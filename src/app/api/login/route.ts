@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 
 if (!process.env.RESEND_API_KEY) {
   throw new Error("❌ Falta RESEND_API_KEY en variables de entorno");
@@ -9,8 +9,10 @@ if (!process.env.RESEND_API_KEY) {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
+    const supabaseAdmin = getSupabaseAdmin(); // ✅ instancia segura en runtime
+
     const body = await req.json();
     const email = body.email?.toLowerCase().trim() || null;
     const password = body.password || null;
@@ -155,7 +157,8 @@ export async function POST(req) {
       message: "Login correcto",
       user: { id: user.id, email: user.email },
     });
-  } catch (err) {
+  } catch (err: any) {
+    console.error("❌ Error en /api/login:", err);
     return NextResponse.json(
       { success: false, message: err.message || "Error interno" },
       { status: 500 }

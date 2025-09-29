@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import bcrypt from "bcryptjs";
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
+    const supabaseAdmin = getSupabaseAdmin(); // ✅ instancia segura en runtime
+
     const { nombre, apellido, dni, email, password, telefono } =
       await req.json();
 
@@ -17,7 +19,7 @@ export async function POST(req) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // 🔹 Crear usuario directamente en Supabase Auth sin confirmación
+    // 🔹 Crear usuario en Supabase Auth sin confirmación de email
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email: normalizedEmail,
@@ -34,7 +36,7 @@ export async function POST(req) {
     // 🔹 Hashear la contraseña antes de guardarla
     const hashedPassword = bcrypt.hashSync(password, 10);
 
-    // 🔹 Insertar datos del usuario en la tabla propia "usuarios"
+    // 🔹 Insertar datos del usuario en la tabla "usuarios"
     const { data: userData, error: insertError } = await supabaseAdmin
       .from("usuarios")
       .insert([
@@ -53,7 +55,7 @@ export async function POST(req) {
       .single();
 
     if (insertError) {
-      // Si la inserción falla, borramos el usuario creado en Auth
+      // Si falla la inserción en la tabla, borramos el usuario creado en Auth
       await supabaseAdmin.auth.admin.deleteUser(userId);
       return NextResponse.json(
         { message: insertError.message },
@@ -65,8 +67,8 @@ export async function POST(req) {
       message: "Usuario creado correctamente ✅",
       user: userData,
     });
-  } catch (err) {
-    console.error("Error /api/register:", err);
+  } catch (err: any) {
+    console.error("❌ Error en /api/register:", err);
     return NextResponse.json({ message: err.message }, { status: 500 });
   }
 }
