@@ -1,28 +1,20 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
 import bcrypt from "bcryptjs";
+import { NextResponse } from "next/server";
+import { Resend } from "resend";
+import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
-// Cliente público (solo para casos mínimos, no login)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-);
-
-// Cliente con service role (para login, usuarios, etc.)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.SUPABASE_SERVICE_ROLE_KEY as string
-);
+if (!process.env.RESEND_API_KEY) {
+  throw new Error("❌ Falta RESEND_API_KEY en variables de entorno");
+}
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function POST(req: Request) {
+export async function POST(req) {
   try {
     const body = await req.json();
-    const email: string | null = body.email?.toLowerCase().trim() || null;
-    const password: string | null = body.password || null;
-    const code: string | null = body.code || null;
+    const email = body.email?.toLowerCase().trim() || null;
+    const password = body.password || null;
+    const code = body.code || null;
 
     if (!email) {
       return NextResponse.json(
@@ -33,7 +25,7 @@ export async function POST(req: Request) {
 
     console.log("📩 Login attempt for:", email);
 
-    // Buscar usuario en la tabla
+    // ---------------- Buscar usuario ----------------
     const { data: user, error: userError } = await supabaseAdmin
       .from("usuarios")
       .select("id, email, password, last_login")
@@ -47,7 +39,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // LOGIN CON CÓDIGO (PRIMER INGRESO)
+    // ---------------- LOGIN CON CÓDIGO ----------------
     if (code) {
       const { data: codeData, error: codeError } = await supabaseAdmin
         .from("email_codes")
@@ -73,26 +65,13 @@ export async function POST(req: Request) {
         );
       }
 
-      // Marcar como usado
+      // Marcar código como usado
       await supabaseAdmin
         .from("email_codes")
         .update({ used: true })
         .eq("id", codeData.id);
 
-      // Hacer login definitivo
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password: password!,
-        });
-
-      if (authError || !authData.session) {
-        return NextResponse.json(
-          { success: false, message: authError?.message || "Error de login" },
-          { status: 401 }
-        );
-      }
-
+      // Actualizar last_login
       await supabaseAdmin
         .from("usuarios")
         .update({ last_login: new Date().toISOString() })
@@ -102,12 +81,11 @@ export async function POST(req: Request) {
         success: true,
         needsVerification: false,
         message: "Código validado. Login correcto",
-        token: authData.session.access_token,
-        user: { id: authData.user?.id, email: authData.user?.email },
+        user: { id: user.id, email: user.email },
       });
     }
 
-    // LOGIN NORMAL
+    // ---------------- LOGIN NORMAL ----------------
     if (!password) {
       return NextResponse.json(
         { success: false, message: "Contraseña requerida" },
@@ -132,8 +110,8 @@ export async function POST(req: Request) {
 
     const isFirstLogin = !user.last_login;
 
-    // Primera vez → enviar código
     if (isFirstLogin) {
+      // ---------------- Primera vez: enviar código ----------------
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
       const expires_at = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -165,17 +143,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // Login normal
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({ email, password });
-
-    if (authError || !authData.session) {
-      return NextResponse.json(
-        { success: false, message: authError?.message || "Error de login" },
-        { status: 401 }
-      );
-    }
-
+    // ---------------- Login normal ----------------
     await supabaseAdmin
       .from("usuarios")
       .update({ last_login: new Date().toISOString() })
@@ -185,13 +153,11 @@ export async function POST(req: Request) {
       success: true,
       needsVerification: false,
       message: "Login correcto",
-      token: authData.session.access_token,
-      user: { id: authData.user?.id, email: authData.user?.email },
+      user: { id: user.id, email: user.email },
     });
-  } catch (err: unknown) {
-    const error = err as Error;
+  } catch (err) {
     return NextResponse.json(
-      { success: false, message: error.message || "Error interno" },
+      { success: false, message: err.message || "Error interno" },
       { status: 500 }
     );
   }
