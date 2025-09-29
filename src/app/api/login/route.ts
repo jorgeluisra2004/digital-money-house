@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import bcrypt from "bcryptjs";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
     const body = await req.json();
     const email = body.email?.toLowerCase().trim();
@@ -22,7 +32,7 @@ export async function POST(req) {
     console.log("📩 Login attempt for:", email);
 
     // 🔹 Buscar usuario en tabla propia
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseAdmin
       .from("usuarios")
       .select("id, email, password, last_login")
       .eq("email", email)
@@ -42,7 +52,7 @@ export async function POST(req) {
     if (code) {
       console.log("🔢 Validando código:", code);
 
-      const { data: codeData, error: codeError } = await supabase
+      const { data: codeData, error: codeError } = await supabaseAdmin
         .from("email_codes")
         .select("*")
         .eq("email", email)
@@ -53,7 +63,6 @@ export async function POST(req) {
         .single();
 
       if (codeError || !codeData) {
-        console.error("❌ Código inválido:", codeError);
         return NextResponse.json(
           { success: false, message: "Código incorrecto o vencido" },
           { status: 401 }
@@ -68,7 +77,7 @@ export async function POST(req) {
       }
 
       // Marcar código como usado
-      await supabase
+      await supabaseAdmin
         .from("email_codes")
         .update({ used: true })
         .eq("id", codeData.id);
@@ -78,14 +87,13 @@ export async function POST(req) {
         await supabase.auth.signInWithPassword({ email, password });
 
       if (authError || !authData.session) {
-        console.error("❌ Error Auth login with code:", authError);
         return NextResponse.json(
           { success: false, message: authError?.message || "Error de login" },
           { status: 401 }
         );
       }
 
-      await supabase
+      await supabaseAdmin
         .from("usuarios")
         .update({ last_login: new Date().toISOString() })
         .eq("email", email);
@@ -129,11 +137,9 @@ export async function POST(req) {
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
       const expires_at = new Date(Date.now() + 10 * 60 * 1000);
 
-      await supabase
-        .from("email_codes")
-        .insert([
-          { email, code: String(verificationCode), expires_at, used: false },
-        ]);
+      await supabaseAdmin.from("email_codes").insert([
+        { email, code: String(verificationCode), expires_at, used: false },
+      ]);
 
       await resend.emails.send({
         from: "onboarding@resend.dev",
@@ -162,14 +168,13 @@ export async function POST(req) {
       await supabase.auth.signInWithPassword({ email, password });
 
     if (authError || !authData.session) {
-      console.error("❌ Error Auth login normal:", authError);
       return NextResponse.json(
         { success: false, message: authError?.message || "Error de login" },
         { status: 401 }
       );
     }
 
-    await supabase
+    await supabaseAdmin
       .from("usuarios")
       .update({ last_login: new Date().toISOString() })
       .eq("email", email);
@@ -181,7 +186,7 @@ export async function POST(req) {
       token: authData.session.access_token,
       user: { id: authData.user?.id, email: authData.user?.email },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error /api/login:", err);
     return NextResponse.json(
       { success: false, message: err.message || "Error interno" },
