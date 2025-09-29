@@ -3,11 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import bcrypt from "bcryptjs";
 
+// Cliente público (solo para casos mínimos, no login)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
+// Cliente con service role (para login, usuarios, etc.)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
 
     console.log("📩 Login attempt for:", email);
 
-    // 🔹 Buscar usuario en tabla propia
+    // Buscar usuario en la tabla
     const { data: user, error: userError } = await supabaseAdmin
       .from("usuarios")
       .select("id, email, password, last_login")
@@ -39,19 +41,14 @@ export async function POST(req: Request) {
       .single();
 
     if (userError || !user) {
-      console.error("❌ Usuario no encontrado:", userError);
       return NextResponse.json(
         { success: false, message: "Usuario no encontrado" },
         { status: 404 }
       );
     }
 
-    console.log("✅ Usuario encontrado:", user);
-
-    // 🔹 LOGIN CON CÓDIGO (PRIMER INGRESO)
+    // LOGIN CON CÓDIGO (PRIMER INGRESO)
     if (code) {
-      console.log("🔢 Validando código:", code);
-
       const { data: codeData, error: codeError } = await supabaseAdmin
         .from("email_codes")
         .select("*")
@@ -76,15 +73,18 @@ export async function POST(req: Request) {
         );
       }
 
-      // Marcar código como usado
+      // Marcar como usado
       await supabaseAdmin
         .from("email_codes")
         .update({ used: true })
         .eq("id", codeData.id);
 
-      // 🔹 Login definitivo con Auth
+      // Hacer login definitivo
       const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({ email, password: password! });
+        await supabase.auth.signInWithPassword({
+          email,
+          password: password!,
+        });
 
       if (authError || !authData.session) {
         return NextResponse.json(
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // 🔹 LOGIN NORMAL (CON CONTRASEÑA)
+    // LOGIN NORMAL
     if (!password) {
       return NextResponse.json(
         { success: false, message: "Contraseña requerida" },
@@ -132,7 +132,7 @@ export async function POST(req: Request) {
 
     const isFirstLogin = !user.last_login;
 
-    // 🔹 Primera vez: enviar código
+    // Primera vez → enviar código
     if (isFirstLogin) {
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
       const expires_at = new Date(Date.now() + 10 * 60 * 1000);
@@ -165,7 +165,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // 🔹 Login normal
+    // Login normal
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({ email, password });
 
@@ -190,8 +190,6 @@ export async function POST(req: Request) {
     });
   } catch (err: unknown) {
     const error = err as Error;
-    console.error("Error /api/login:", error.message);
-
     return NextResponse.json(
       { success: false, message: error.message || "Error interno" },
       { status: 500 }

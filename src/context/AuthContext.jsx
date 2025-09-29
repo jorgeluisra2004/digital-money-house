@@ -29,7 +29,8 @@ export function AuthProvider({ children }) {
         data: { session },
         error,
       } = await supabase.auth.getSession();
-      if (error) console.error(error);
+
+      if (error) console.error("Error getting session:", error);
       setSession(session);
 
       if (session?.user?.id) {
@@ -41,20 +42,21 @@ export function AuthProvider({ children }) {
 
     initAuth();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
-        setSession(newSession);
-        if (newSession?.user?.id) {
-          const usuarioData = await fetchUsuario(newSession.user.id);
-          setUser(usuarioData);
-        } else {
-          setUser(null);
-        }
-        setLoading(false);
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      setSession(newSession);
 
-    return () => listener.subscription.unsubscribe();
+      if (newSession?.user?.id) {
+        const usuarioData = await fetchUsuario(newSession.user.id);
+        setUser(usuarioData);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email, password) => {
@@ -62,6 +64,7 @@ export function AuthProvider({ children }) {
       email,
       password,
     });
+
     if (error) throw error;
 
     if (data.session?.user?.id) {
@@ -84,6 +87,7 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+
 export function useAuth() {
   return useContext(AuthContext);
 }
