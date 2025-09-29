@@ -167,7 +167,6 @@ export async function POST(req) {
 
     const message = err instanceof Error ? err.message : "Error interno";
 
-    return "hello"
-    // NextResponse.json({ success: false, message }, { status: 500 });
+    return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }
