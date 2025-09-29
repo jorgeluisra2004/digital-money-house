@@ -3,14 +3,18 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 
-if (!process.env.RESEND_API_KEY) {
-  throw new Error("❌ Falta RESEND_API_KEY en variables de entorno");
-}
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(req: Request) {
   try {
+    // ✅ Validar variable de entorno en runtime
+    if (!process.env.RESEND_API_KEY) {
+      console.error("❌ Falta RESEND_API_KEY en variables de entorno");
+      return NextResponse.json(
+        { success: false, message: "Error interno de configuración" },
+        { status: 500 }
+      );
+    }
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
     const supabaseAdmin = getSupabaseAdmin(); // ✅ instancia segura en runtime
 
     const body = await req.json();
