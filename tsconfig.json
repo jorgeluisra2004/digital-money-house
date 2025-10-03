@@ -22,6 +22,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/login/route.js", "src/lib/supabaseAdmin.ts", "src/lib/supabaseClient.ts", "src/context/AuthContext.jsx", "src/app/providers/AuthProvider.client.jsx", "src/app/layout.jsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/login/route.js", "src/lib/supabaseAdmin.js", "src/lib/supabaseClient.ts", "src/context/AuthContext.jsx", "src/app/providers/AuthProvider.client.jsx", "src/app/layout.jsx", "src/app/api/register/route.js", "src/app/api/verify-code/route.js"],
   "exclude": ["node_modules"]
 }

@@ -1,43 +1,11 @@
 "use client";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getSupabaseClient } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Header() {
-  const supabase = getSupabaseClient(); // runtime (stub en SSR)
-  const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, logout } = useAuth();
 
-  useEffect(() => {
-    let unsub;
-
-    const init = async () => {
-      try {
-        // sesión actual
-        const { data, error } = await supabase.auth.getSession();
-        if (error) console.warn("getSession error:", error);
-        setUser(data?.session?.user ?? null);
-
-        // escuchar cambios de sesión (login/logout/refresh)
-        const { data: sub } = supabase.auth.onAuthStateChange(
-          (_event, session) => {
-            setUser(session?.user ?? null);
-          }
-        );
-        unsub = sub?.subscription;
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    init();
-    return () => unsub?.unsubscribe?.();
-  }, [supabase]);
-
-  if (loading) return null; // o un skeleton
+  if (loading) return null; // skeleton si quieres
 
   return (
     <header className="w-full bg-[#222] flex items-center justify-between px-6 py-4">
@@ -97,11 +65,7 @@ export default function Header() {
               Dashboard
             </Link>
             <button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                setUser(null);
-                router.replace("/login");
-              }}
+              onClick={logout}
               className="px-4 py-2 rounded-md border-2"
               style={{
                 borderColor: "var(--dmh-lime)",
