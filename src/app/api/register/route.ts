@@ -10,6 +10,7 @@ export async function POST(req: Request) {
 
     const { nombre, apellido, dni, email, password, telefono } =
       await req.json();
+
     if (!nombre || !apellido || !dni || !email || !password) {
       return NextResponse.json(
         { message: "Todos los campos obligatorios deben estar completos" },
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = String(email).toLowerCase().trim();
 
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
@@ -25,8 +26,10 @@ export async function POST(req: Request) {
         password,
         email_confirm: true,
       });
-    if (authError)
+
+    if (authError) {
       return NextResponse.json({ message: authError.message }, { status: 400 });
+    }
 
     const userId = authData.user.id;
     const hashedPassword = bcrypt.hashSync(password, 10);
@@ -60,11 +63,10 @@ export async function POST(req: Request) {
       message: "Usuario creado correctamente ✅",
       user: userData,
     });
-  } catch (err: any) {
-    console.error("❌ Error en /api/register:", err);
-    return NextResponse.json(
-      { message: err?.message || "Error interno en el servidor" },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Error interno en el servidor";
+    console.error("❌ Error en /api/register:", message);
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

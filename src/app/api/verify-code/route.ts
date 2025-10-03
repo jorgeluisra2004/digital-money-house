@@ -8,10 +8,11 @@ export async function POST(req: Request) {
     const supabaseAdmin = getSupabaseAdmin();
 
     const { email, code } = await req.json();
-    if (!email || !code)
+    if (!email || !code) {
       return NextResponse.json({ message: "Faltan campos" }, { status: 400 });
+    }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = String(email).toLowerCase().trim();
     const normalizedCode = String(code).trim();
 
     const { data: codes, error } = await supabaseAdmin
@@ -42,11 +43,10 @@ export async function POST(req: Request) {
       .eq("email", normalizedEmail);
 
     return NextResponse.json({ message: "Código verificado ✅" });
-  } catch (err: any) {
-    console.error("❌ Error en verify-code:", err);
-    return NextResponse.json(
-      { message: err?.message || "Error interno en el servidor" },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Error interno en el servidor";
+    console.error("❌ Error en verify-code:", message);
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

@@ -16,23 +16,24 @@ export async function POST(req: Request) {
     const code = body?.code ?? null;
 
     if (!email) {
-      return NextResponse.json({ success: false, message: "Email requerido" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Email requerido" },
+        { status: 400 }
+      );
     }
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1) Buscar usuario (para los tres modos)
+    // Buscar usuario (común a los tres flujos)
     const { data: user, error: userError } = await supabaseAdmin
       .from("usuarios")
       .select("id, email, password, last_login")
       .eq("email", email)
       .single();
 
-    // --- MODO SÓLO EMAIL: devolver exists/firstLogin ---
+    // --- SOLO EMAIL (step 1) ---
     if (!password && !code) {
-      if (userError || !user) {
-        return NextResponse.json({ exists: false });
-      }
+      if (userError || !user) return NextResponse.json({ exists: false });
       return NextResponse.json({
         exists: true,
         userId: user.id,
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // --- MODO CÓDIGO ---
+    // --- CÓDIGO ---
     if (code) {
       const { data: codeData, error: codeError } = await supabaseAdmin
         .from("email_codes")
@@ -53,15 +54,28 @@ export async function POST(req: Request) {
         .single();
 
       if (codeError || !codeData) {
-        return NextResponse.json({ success: false, message: "Código incorrecto o vencido" }, { status: 401 });
+        return NextResponse.json(
+          { success: false, message: "Código incorrecto o vencido" },
+          { status: 401 }
+        );
       }
 
       if (new Date(codeData.expires_at) < new Date()) {
-        return NextResponse.json({ success: false, message: "Código vencido" }, { status: 401 });
+        return NextResponse.json(
+          { success: false, message: "Código vencido" },
+          { status: 401 }
+        );
       }
 
-      await supabaseAdmin.from("email_codes").update({ used: true }).eq("id", codeData.id);
-      await supabaseAdmin.from("usuarios").update({ last_login: new Date().toISOString() }).eq("email", email);
+      await supabaseAdmin
+        .from("email_codes")
+        .update({ used: true })
+        .eq("id", codeData.id);
+
+      await supabaseAdmin
+        .from("usuarios")
+        .update({ last_login: new Date().toISOString() })
+        .eq("email", email);
 
       return NextResponse.json({
         success: true,
@@ -71,20 +85,32 @@ export async function POST(req: Request) {
       });
     }
 
-    // --- MODO PASSWORD ---
+    // --- PASSWORD ---
     if (!user || userError) {
-      return NextResponse.json({ success: false, message: "Usuario no encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: "Usuario no encontrado" },
+        { status: 404 }
+      );
     }
     if (!password) {
-      return NextResponse.json({ success: false, message: "Contraseña requerida" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Contraseña requerida" },
+        { status: 400 }
+      );
     }
     if (!user.password) {
-      return NextResponse.json({ success: false, message: "Contraseña no registrada" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: "Contraseña no registrada" },
+        { status: 401 }
+      );
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      return NextResponse.json({ success: false, message: "Contraseña incorrecta" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: "Contraseña incorrecta" },
+        { status: 401 }
+      );
     }
 
     const isFirstLogin = !user.last_login;
@@ -92,9 +118,11 @@ export async function POST(req: Request) {
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
       const expires_at = new Date(Date.now() + 10 * 60 * 1000);
 
-      await supabaseAdmin.from("email_codes").insert([
-        { email, code: String(verificationCode), expires_at, used: false },
-      ]);
+      await supabaseAdmin
+        .from("email_codes")
+        .insert([
+          { email, code: String(verificationCode), expires_at, used: false },
+        ]);
 
       await resend.emails.send({
         from: "onboarding@resend.dev",
@@ -113,7 +141,10 @@ export async function POST(req: Request) {
       });
     }
 
-    await supabaseAdmin.from("usuarios").update({ last_login: new Date().toISOString() }).eq("email", email);
+    await supabaseAdmin
+      .from("usuarios")
+      .update({ last_login: new Date().toISOString() })
+      .eq("email", email);
 
     return NextResponse.json({
       success: true,
@@ -121,8 +152,9 @@ export async function POST(req: Request) {
       message: "Login correcto",
       user: { id: user.id, email: user.email },
     });
-  } catch (err: any) {
-    console.error("❌ Error en /api/login:", err);
-    return NextResponse.json({ success: false, message: err?.message || "Error interno" }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Error interno";
+    console.error("❌ Error en /api/login:", message);
+    return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }
