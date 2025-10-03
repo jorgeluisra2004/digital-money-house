@@ -1,23 +1,32 @@
 import "@/app/globals.css";
 import Header from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { AuthProvider } from "@/context/AuthContext";
+import dynamic from "next/dynamic";
 
 export const metadata = {
   title: "Digital Money House",
   description: "Landing page - Digital Money House",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+const ClientAuthProvider = dynamic(
+  () => import("./providers/AuthProvider.client"),
+  { ssr: false }
+);
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="es">
       <head />
       <body className="flex flex-col min-h-screen">
-        <AuthProvider>
+        <ClientAuthProvider>
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
-        </AuthProvider>
+        </ClientAuthProvider>
       </body>
     </html>
   );

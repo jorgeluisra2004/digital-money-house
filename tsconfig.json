@@ -22,6 +22,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/login/route.ts", "src/lib/supabaseAdmin.ts", "src/lib/supabaseClient.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/login/route.ts", "src/lib/supabaseAdmin.ts", "src/lib/supabaseClient.ts", "src/context/AuthContext.tsx"],
   "exclude": ["node_modules"]
 }
