@@ -1,17 +1,12 @@
 import "@/app/globals.css";
 import Header from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import dynamic from "next/dynamic";
+import ClientAuthProvider from "./providers/AuthProvider.client";
 
 export const metadata = {
   title: "Digital Money House",
   description: "Landing page - Digital Money House",
 };
-
-const ClientAuthProvider = dynamic(
-  () => import("./providers/AuthProvider.client"),
-  { ssr: false }
-);
 
 export default function RootLayout({
   children,

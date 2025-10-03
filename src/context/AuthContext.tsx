@@ -13,20 +13,18 @@ type AuthCtx = {
 const AuthContext = createContext<AuthCtx | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = getSupabaseClient(); // ← se crea sólo en cliente
+  const supabase = getSupabaseClient();
   const [session, setSession] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchUsuario = async (authId: string) => {
-    // ⚠️ Si tu tabla `usuarios` usa `id` = auth.uid, filtra por `id`.
-    // Cambié auth_id -> id porque tu flujo de register inserta con `id = userId`.
+    // Tu registro de /api/register inserta usuarios con id = auth.user.id
     const { data, error } = await supabase
       .from("usuarios")
       .select("*")
       .eq("id", authId)
       .single();
-
     if (error) {
       console.error("Error fetching usuario:", error);
       return null;
