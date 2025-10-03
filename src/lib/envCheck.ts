@@ -1,27 +1,20 @@
-// lib/envCheck.ts
+// src/lib/envCheck.js
 export function checkServerEnv() {
-  const required = [
-    "SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "RESEND_API_KEY",
-  ];
-  const missing = required.filter((v) => !process.env[v]);
-  if (missing.length) {
-    throw new Error(
-      `❌ Faltan variables de entorno SERVER: ${missing.join(", ")}`
-    );
-  }
-}
+  const missing = [];
+  const supabaseUrl =
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-export function checkClientEnv() {
-  // Úsalo SOLO en código cliente si querés validar antes de usar supabase público
-  const required = [
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  ];
-  const missing = required.filter((v) => !process.env[v]);
+  if (!supabaseUrl) missing.push("SUPABASE_URL o NEXT_PUBLIC_SUPABASE_URL");
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY)
+    missing.push("SUPABASE_SERVICE_ROLE_KEY");
+
   if (missing.length) {
-    // En cliente no tires un error fatal; logueá/avisa si querés.
-    // console.warn(`❌ Faltan variables CLIENT: ${missing.join(", ")}`);
+    throw new Error(`Faltan variables de entorno: ${missing.join(", ")}`);
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    console.warn(
+      "⚠️ Falta RESEND_API_KEY: el envío de códigos por email no funcionará."
+    );
   }
 }

@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { checkServerEnv } from "@/lib/envCheck";
 
-export async function POST(req: Request) {
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export async function POST(req) {
   try {
-    checkServerEnv();
     const supabaseAdmin = getSupabaseAdmin();
-
     const { email, code } = await req.json();
+
     if (!email || !code) {
       return NextResponse.json({ message: "Faltan campos" }, { status: 400 });
     }
 
-    const normalizedEmail = String(email).toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase().trim();
     const normalizedCode = String(code).trim();
 
     const { data: codes, error } = await supabaseAdmin
@@ -24,11 +26,12 @@ export async function POST(req: Request) {
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (error || !codes?.length) {
+    if (error || !codes || codes.length === 0) {
       return NextResponse.json({ message: "Código inválido" }, { status: 400 });
     }
 
     const record = codes[0];
+
     if (new Date(record.expires_at) < new Date()) {
       return NextResponse.json({ message: "Código expirado" }, { status: 400 });
     }
@@ -37,16 +40,18 @@ export async function POST(req: Request) {
       .from("email_codes")
       .update({ used: true })
       .eq("id", record.id);
+
     await supabaseAdmin
       .from("usuarios")
       .update({ last_login: new Date().toISOString() })
       .eq("email", normalizedEmail);
 
     return NextResponse.json({ message: "Código verificado ✅" });
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Error interno en el servidor";
-    console.error("❌ Error en verify-code:", message);
-    return NextResponse.json({ message }, { status: 500 });
+  } catch (err) {
+    console.error("❌ Error en verify-code:", err);
+    return NextResponse.json(
+      { message: "Error interno en el servidor" },
+      { status: 500 }
+    );
   }
 }

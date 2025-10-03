@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getSupabaseClient } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export default function Header() {
-  const supabase = getSupabaseClient(); // ← crea el cliente en runtime (solo cliente)
+  const supabase = getSupabaseClient(); // runtime (stub en SSR)
+  const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -13,45 +15,44 @@ export default function Header() {
     let unsub;
 
     const init = async () => {
-      // Usuario actual
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-      setUser(currentUser);
-      setLoading(false);
+      try {
+        // sesión actual
+        const { data, error } = await supabase.auth.getSession();
+        if (error) console.warn("getSession error:", error);
+        setUser(data?.session?.user ?? null);
 
-      // Escuchar cambios de sesión
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user ?? null);
-      });
-      unsub = data.subscription;
+        // escuchar cambios de sesión (login/logout/refresh)
+        const { data: sub } = supabase.auth.onAuthStateChange(
+          (_event, session) => {
+            setUser(session?.user ?? null);
+          }
+        );
+        unsub = sub?.subscription;
+      } finally {
+        setLoading(false);
+      }
     };
 
     init();
-
-    return () => {
-      if (unsub) unsub.unsubscribe();
-    };
+    return () => unsub?.unsubscribe?.();
   }, [supabase]);
 
-  if (loading) return null;
+  if (loading) return null; // o un skeleton
 
   return (
     <header className="w-full bg-[#222] flex items-center justify-between px-6 py-4">
       {/* Logo */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <div
-            className="w-10 h-8 rounded-sm flex items-center justify-center"
-            style={{ background: "linear-gradient(90deg,#bff21a,#d4ff2b)" }}
+      <div className="flex items-center gap-2">
+        <div
+          className="w-10 h-8 rounded-sm flex items-center justify-center"
+          style={{ background: "linear-gradient(90deg,#bff21a,#d4ff2b)" }}
+        >
+          <span
+            className="font-bold text-black text-lg tracking-tight"
+            style={{ letterSpacing: "-1px" }}
           >
-            <span
-              className="font-bold text-black text-lg tracking-tight"
-              style={{ letterSpacing: "-1px" }}
-            >
-              DMH
-            </span>
-          </div>
+            DMH
+          </span>
         </div>
       </div>
 
@@ -85,7 +86,7 @@ export default function Header() {
         ) : (
           <>
             <Link
-              href="/dashboard"
+              href="/home"
               className="px-4 py-2 rounded-md font-semibold"
               style={{
                 backgroundColor: "var(--dmh-lime)",
@@ -99,6 +100,7 @@ export default function Header() {
               onClick={async () => {
                 await supabase.auth.signOut();
                 setUser(null);
+                router.replace("/login");
               }}
               className="px-4 py-2 rounded-md border-2"
               style={{

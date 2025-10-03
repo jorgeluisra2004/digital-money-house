@@ -2,9 +2,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap");
 
 :root {
-  --dmh-lime: #d4ff2b;
-  --dmh-lime-dark: #bfe21a;
-  --dmh-black: #232323;
+  --dmh-black: #1f1f1f;
+  --dmh-lime: #bff21a;
+  --dmh-lime-dark: #a4d90f;
+  --white: #ffffff;
 }
 
 html,

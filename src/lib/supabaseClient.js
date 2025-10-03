@@ -1,8 +1,8 @@
+// src/lib/supabaseClient.js
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
 
-// Stub mínimo para SSR/prerender: evita romper el build en el servidor
 function makeSSRStub() {
   const resp = { data: null, error: null };
   const noop = async () => resp;
@@ -38,16 +38,12 @@ function makeSSRStub() {
 let _client = null;
 
 export function getSupabaseClient() {
-  // En build/prerender (no hay window): devolvemos stub
-  if (typeof window === "undefined") {
-    return makeSSRStub();
-  }
+  if (typeof window === "undefined") return makeSSRStub();
   if (_client) return _client;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // En navegador: si faltaran, no rompemos; devolvemos stub y avisamos
   if (!url || !anon) {
     console.warn(
       "⚠️ NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY no están definidas."
@@ -62,6 +58,5 @@ export function getSupabaseClient() {
       detectSessionInUrl: true,
     },
   });
-
   return _client;
 }

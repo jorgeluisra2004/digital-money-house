@@ -8,26 +8,25 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
+import { getSupabaseClient } from "@/lib/supabaseClient"; // ⬅️ IMPORTANTE
 
 /* --- Schemas --- */
-const emailSchema = z.object({
-  email: z.string().email("Correo inválido"),
-});
-
+const emailSchema = z.object({ email: z.string().email("Correo inválido") });
 const passwordSchema = z.object({
   password: z.string().min(6, "Mínimo 6 caracteres"),
 });
-
 const codeSchema = z.object({
   code: z.string().length(6, "El código debe tener 6 dígitos"),
 });
 
 export default function LoginPage() {
+  const supabase = getSupabaseClient(); // ⬅️ cliente real
   const router = useRouter();
-  const [step, setStep] = useState(1); // 1 = email only, 2 = password, 3 = code
+
+  const [step, setStep] = useState(1); // 1=email, 2=password, 3=código
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [userId, setUserId] = useState(null);
+  const [pwd, setPwd] = useState(""); // ⬅️ guardamos la password para el paso 3
   const [firstLogin, setFirstLogin] = useState(false);
 
   const emailForm = useForm({ resolver: zodResolver(emailSchema) });
@@ -43,18 +42,14 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: data.email }),
       });
-
       const result = await res.json();
       if (!res.ok) throw new Error(result.message || "Error");
 
       setEmail(data.email);
-
       if (!result.exists) {
         toast.error("No existe una cuenta con ese e-mail. Podés crear una.");
         return;
       }
-
-      setUserId(result.userId ?? null);
       setFirstLogin(Boolean(result.firstLogin));
       setStep(2);
     } catch (err) {
@@ -73,16 +68,21 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password: data.password }),
       });
-
       const result = await res.json();
       if (!res.ok) throw new Error(result.message || "Error al iniciar sesión");
 
       if (result.needsVerification) {
-        toast.success(
-          "Contraseña correcta. Te enviamos un código al correo 📧"
-        );
+        // Guardamos la password para firmar sesión luego del código
+        setPwd(data.password);
+        toast.success("Contraseña correcta. Te enviamos un código 📧");
         setStep(3);
       } else {
+        // ⬅️ CREA SESIÓN DE SUPABASE EN EL CLIENTE
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password: data.password,
+        });
+        if (error) throw error;
         toast.success("Login exitoso 🎉");
         router.push("/home");
       }
@@ -102,9 +102,15 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code: data.code }),
       });
-
       const result = await res.json();
       if (!res.ok) throw new Error(result.message || "Código incorrecto");
+
+      // ⬅️ CREA SESIÓN LUEGO DE VERIFICAR TU CÓDIGO
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: pwd, // usamos la password guardada en el paso 2
+      });
+      if (error) throw error;
 
       toast.success("Código verificado. Bienvenido 🎉");
       router.push("/home");
@@ -119,7 +125,6 @@ export default function LoginPage() {
     <div className="h-screen flex items-center justify-center bg-[var(--dmh-black)] px-4">
       <div className="w-full max-w-sm text-center">
         <AnimatePresence mode="wait">
-          {/* -------- STEP 1: email -------- */}
           {step === 1 && (
             <motion.form
               key="step1"
@@ -133,7 +138,6 @@ export default function LoginPage() {
               <h2 className="text-base font-semibold mb-2 text-white">
                 ¡Hola! Ingresá tu e-mail
               </h2>
-
               <input
                 type="email"
                 placeholder="Correo electrónico"
@@ -145,7 +149,6 @@ export default function LoginPage() {
                   {emailForm.formState.errors.email.message}
                 </p>
               )}
-
               <button
                 type="submit"
                 disabled={loading}
@@ -153,7 +156,6 @@ export default function LoginPage() {
               >
                 {loading ? "Comprobando..." : "Continuar"}
               </button>
-
               <Link href="/register" className="w-full">
                 <button
                   type="button"
@@ -165,7 +167,6 @@ export default function LoginPage() {
             </motion.form>
           )}
 
-          {/* -------- STEP 2: password -------- */}
           {step === 2 && (
             <motion.form
               key="step2"
@@ -179,13 +180,11 @@ export default function LoginPage() {
               <h2 className="text-base font-semibold mb-2 text-white">
                 Ingresá tu contraseña
               </h2>
-
               <p className="text-sm text-gray-400 mb-1">
                 {firstLogin
                   ? "Es tu primer ingreso: después de la contraseña te pediremos un código."
                   : "Ingresá tu contraseña para continuar."}
               </p>
-
               <input
                 type="password"
                 placeholder="Contraseña"
@@ -197,7 +196,6 @@ export default function LoginPage() {
                   {passwordForm.formState.errors.password.message}
                 </p>
               )}
-
               <div className="w-full flex flex-col gap-2">
                 <button
                   type="submit"
@@ -206,7 +204,6 @@ export default function LoginPage() {
                 >
                   {loading ? "Verificando..." : "Continuar"}
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setStep(1)}
@@ -218,7 +215,6 @@ export default function LoginPage() {
             </motion.form>
           )}
 
-          {/* -------- STEP 3: código -------- */}
           {step === 3 && (
             <motion.form
               key="step3"
@@ -235,7 +231,6 @@ export default function LoginPage() {
               <p className="text-sm text-gray-400 mb-1">
                 Revisá tu correo ({email}). El código vence en 10 minutos.
               </p>
-
               <input
                 type="text"
                 placeholder="Código de 6 dígitos"
@@ -247,7 +242,6 @@ export default function LoginPage() {
                   {codeForm.formState.errors.code.message}
                 </p>
               )}
-
               <div className="w-full flex flex-col gap-2">
                 <button
                   type="submit"
@@ -256,7 +250,6 @@ export default function LoginPage() {
                 >
                   {loading ? "Verificando..." : "Verificar"}
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setStep(2)}

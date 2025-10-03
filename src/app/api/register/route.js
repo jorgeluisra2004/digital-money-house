@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { checkServerEnv } from "@/lib/envCheck";
 
-export async function POST(req: Request) {
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export async function POST(req) {
   try {
-    checkServerEnv();
     const supabaseAdmin = getSupabaseAdmin();
 
     const { nombre, apellido, dni, email, password, telefono } =
@@ -18,8 +20,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const normalizedEmail = String(email).toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase().trim();
 
+    // Crear usuario en Auth (email confirmado)
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email: normalizedEmail,
@@ -34,6 +37,7 @@ export async function POST(req: Request) {
     const userId = authData.user.id;
     const hashedPassword = bcrypt.hashSync(password, 10);
 
+    // Insertar en tabla usuarios (id = auth user id)
     const { data: userData, error: insertError } = await supabaseAdmin
       .from("usuarios")
       .insert([
@@ -63,10 +67,11 @@ export async function POST(req: Request) {
       message: "Usuario creado correctamente ✅",
       user: userData,
     });
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Error interno en el servidor";
-    console.error("❌ Error en /api/register:", message);
-    return NextResponse.json({ message }, { status: 500 });
+  } catch (err) {
+    console.error("❌ Error en /api/register:", err);
+    return NextResponse.json(
+      { message: "Error interno en el servidor" },
+      { status: 500 }
+    );
   }
 }

@@ -1,17 +1,19 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { checkServerEnv } from "@/lib/envCheck";
 
-export async function POST(req: Request) {
+export async function POST(req) {
   try {
     checkServerEnv();
-    const resendKey = process.env.RESEND_API_KEY!;
-    const resend = new Resend(resendKey);
 
     const body = await req.json();
-    const email = body?.email?.toLowerCase().trim();
+    const email = (body?.email || "").toLowerCase().trim();
     const password = body?.password ?? null;
     const code = body?.code ?? null;
 
@@ -24,14 +26,13 @@ export async function POST(req: Request) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // Buscar usuario (común a los tres flujos)
     const { data: user, error: userError } = await supabaseAdmin
       .from("usuarios")
       .select("id, email, password, last_login")
       .eq("email", email)
       .single();
 
-    // --- SOLO EMAIL (step 1) ---
+    // Paso 1: sólo email
     if (!password && !code) {
       if (userError || !user) return NextResponse.json({ exists: false });
       return NextResponse.json({
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // --- CÓDIGO ---
+    // Paso 3: código
     if (code) {
       const { data: codeData, error: codeError } = await supabaseAdmin
         .from("email_codes")
@@ -85,7 +86,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // --- PASSWORD ---
+    // Paso 2: password
     if (!user || userError) {
       return NextResponse.json(
         { success: false, message: "Usuario no encontrado" },
@@ -105,8 +106,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) {
       return NextResponse.json(
         { success: false, message: "Contraseña incorrecta" },
         { status: 401 }
@@ -114,9 +115,10 @@ export async function POST(req: Request) {
     }
 
     const isFirstLogin = !user.last_login;
+
     if (isFirstLogin) {
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
-      const expires_at = new Date(Date.now() + 10 * 60 * 1000);
+      const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
       await supabaseAdmin
         .from("email_codes")
@@ -124,14 +126,27 @@ export async function POST(req: Request) {
           { email, code: String(verificationCode), expires_at, used: false },
         ]);
 
-      await resend.emails.send({
-        from: "onboarding@resend.dev",
-        to: email,
-        subject: "Tu código de verificación",
-        html: `<p>Hola,</p><p>Tu código es:</p>
-               <h2 style="font-size:24px;letter-spacing:4px;text-align:center;">${verificationCode}</h2>
-               <p>Vence en 10 minutos.</p>`,
-      });
+      const resendKey = process.env.RESEND_API_KEY;
+      if (resendKey) {
+        const resend = new Resend(resendKey);
+        try {
+          await resend.emails.send({
+            from: "onboarding@resend.dev",
+            to: email,
+            subject: "Tu código de verificación",
+            html: `
+              <p>Hola,</p>
+              <p>Tu código de verificación es:</p>
+              <h2 style="font-size:24px;letter-spacing:4px;text-align:center;">
+                ${verificationCode}
+              </h2>
+              <p>Este código vence en 10 minutos.</p>
+            `,
+          });
+        } catch (e) {
+          console.error("Error enviando email de verificación:", e);
+        }
+      }
 
       return NextResponse.json({
         success: true,
@@ -152,9 +167,9 @@ export async function POST(req: Request) {
       message: "Login correcto",
       user: { id: user.id, email: user.email },
     });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Error interno";
-    console.error("❌ Error en /api/login:", message);
+  } catch (err) {
+    console.error("❌ Error en /api/login:", err);
+    const message = err?.message || "Error interno";
     return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }
