@@ -1,59 +1,38 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
-type DBUsuario = {
-  id: string;
-  nombre: string;
-  apellido: string;
-  dni: string;
-  email: string;
-  password?: string | null;
-  telefono?: string | null;
-  created_at?: string | null;
-  last_login?: string | null;
-};
+const AuthContext = createContext(null);
 
-type AuthCtx = {
-  session: Session | null;
-  user: DBUsuario | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<Session | null>;
-  logout: () => Promise<void>;
-};
-
-const AuthContext = createContext<AuthCtx | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }) {
   const supabase = getSupabaseClient();
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<DBUsuario | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const fetchUsuario = async (authId: string): Promise<DBUsuario | null> => {
+  const fetchUsuario = async (authId) => {
     const { data, error } = await supabase
       .from("usuarios")
       .select("*")
-      .eq("id", authId) // tu /api/register guarda id = auth.user.id
+      .eq("id", authId)
       .single();
 
     if (error) {
       console.error("Error fetching usuario:", error);
       return null;
     }
-    return (data as DBUsuario) ?? null;
+    return data ?? null;
   };
 
   useEffect(() => {
-    let unsub: { unsubscribe: () => void } | null = null;
+    let unsub;
 
     (async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) console.error("Error getting session:", error);
 
-        const current = data.session ?? null;
+        const current = data?.session ?? null;
         setSession(current);
 
         if (current?.user?.id) {
@@ -77,43 +56,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       );
 
-      unsub = sub.subscription;
+      unsub = sub?.subscription;
     })();
 
     return () => {
-      if (unsub) unsub.unsubscribe();
+      if (unsub) unsub.unsubscribe?.();
     };
   }, [supabase]);
 
-  const login = async (
-    email: string,
-    password: string
-  ): Promise<Session | null> => {
+  const login = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     if (error) throw error;
 
-    if (data.session?.user?.id) {
+    if (data?.session?.user?.id) {
       const usuarioData = await fetchUsuario(data.session.user.id);
       setUser(usuarioData);
     }
-    setSession(data.session);
-    return data.session;
+    setSession(data?.session ?? null);
+    return data?.session ?? null;
   };
 
-  const logout = async (): Promise<void> => {
+  const logout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
   };
 
-  const value: AuthCtx = { session, user, login, logout, loading };
+  const value = { session, user, login, logout, loading };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth(): AuthCtx {
+export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth debe usarse dentro de <AuthProvider>");
   return ctx;
