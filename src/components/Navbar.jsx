@@ -1,40 +1,40 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import Link from "next/link";
 
 export default function Header() {
+  const supabase = getSupabaseClient(); // ← crea el cliente en runtime (solo cliente)
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Obtener usuario actual
-    const fetchUser = async () => {
+    let unsub;
+
+    const init = async () => {
+      // Usuario actual
       const {
         data: { user: currentUser },
       } = await supabase.auth.getUser();
       setUser(currentUser);
       setLoading(false);
+
+      // Escuchar cambios de sesión
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null);
+      });
+      unsub = data.subscription;
     };
 
-    fetchUser();
-
-    // Escuchar cambios de sesión
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
+    init();
 
     return () => {
-      listener.subscription.unsubscribe();
+      if (unsub) unsub.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
-  if (loading) {
-    return null; // O un skeleton mientras carga
-  }
+  if (loading) return null;
 
   return (
     <header className="w-full bg-[#222] flex items-center justify-between px-6 py-4">
@@ -98,7 +98,7 @@ export default function Header() {
             <button
               onClick={async () => {
                 await supabase.auth.signOut();
-                setUser(null); // actualizar estado inmediatamente
+                setUser(null);
               }}
               className="px-4 py-2 rounded-md border-2"
               style={{
