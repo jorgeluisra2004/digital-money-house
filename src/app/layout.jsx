@@ -8,11 +8,7 @@ export const metadata = {
   description: "Landing page - Digital Money House",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }) {
   return (
     <html lang="es">
       <head />

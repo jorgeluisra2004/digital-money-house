@@ -14,8 +14,9 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase
       .from("usuarios")
       .select("*")
-      .eq("id", authId)
+      .eq("id", authId) // tu /api/register guarda id = auth.user.id
       .single();
+
     if (error) {
       console.error("Error fetching usuario:", error);
       return null;

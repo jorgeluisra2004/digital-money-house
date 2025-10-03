@@ -1,57 +1,56 @@
 "use client";
 
-import { createClient} from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
-// Pequeño stub para SSR/prerender que evita romper el build.
+// Stub mínimo para SSR/prerender: evita romper el build en el servidor
 function makeSSRStub() {
-  // Lo mínimo para que tu UI pueda montar sin explotar en el servidor
-  const noop = async () => ({ data, error });
-  const sub = { subscription: { unsubscribe() {} } };
+  const resp = { data: null, error: null };
+  const noop = async () => resp;
+  const subscription = { unsubscribe() {} };
 
   return {
-    // @ts-expect-error stub parcial solo para SSR
     from() {
-      return {
-        select: noop,
+      const chain = {
+        select: async () => resp,
         insert: noop,
         update: noop,
         delete: noop,
         eq() {
-          return this;
+          return chain;
         },
-        single: noop,
-        order: noop,
+        single: async () => resp,
+        order() {
+          return chain;
+        },
       };
+      return chain;
     },
     auth: {
       getSession: async () => ({ data: { session: null }, error: null }),
       getUser: async () => ({ data: { user: null }, error: null }),
-      onAuthStateChange: () => ({ data: sub }),
+      onAuthStateChange: () => ({ data: { subscription } }),
       signInWithPassword: noop,
       signOut: async () => {},
-      // @ts-expect-error otros métodos no usados en SSR
     },
-    // @ts-expect-error resto del cliente no necesario en SSR
   };
 }
 
-let _client;
+let _client = null;
 
 export function getSupabaseClient() {
-  // Si estamos en build/prerender (no hay window), devolvemos stub
+  // En build/prerender (no hay window): devolvemos stub
   if (typeof window === "undefined") {
     return makeSSRStub();
   }
-
   if (_client) return _client;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // En navegador: si faltaran, no rompemos el build; avisamos y devolvemos stub
+  // En navegador: si faltaran, no rompemos; devolvemos stub y avisamos
   if (!url || !anon) {
     console.warn(
-      "⚠️ NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY no están definidas en runtime del navegador."
+      "⚠️ NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY no están definidas."
     );
     return makeSSRStub();
   }
