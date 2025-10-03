@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient"; // ⬅️ reemplaza este import
 import { useAuth } from "@/context/AuthContext";
 
 export default function HomePage() {
+  const supabase = getSupabaseClient(); // ⬅️ crea el cliente en runtime (solo cliente)
   const { user, loading: authLoading } = useAuth();
   const [cuenta, setCuenta] = useState(null);
   const [movimientos, setMovimientos] = useState([]);
@@ -23,7 +24,7 @@ export default function HomePage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 🔹 Traer datos del usuario
+        // Usuario
         const { data: usuario, error: usuarioError } = await supabase
           .from("usuarios")
           .select("*")
@@ -31,14 +32,14 @@ export default function HomePage() {
           .single();
         if (usuarioError) console.error("Error usuario:", usuarioError);
 
-        // 🔹 Traer cuenta
+        // Cuenta
         const { data: cuentas, error: cuentasError } = await supabase
           .from("cuentas")
           .select("*")
           .eq("usuario_id", user.id);
         if (cuentasError) console.error("Error cuentas:", cuentasError);
 
-        // 🔹 Traer movimientos
+        // Movimientos
         const { data: movimientosData, error: movimientosError } =
           await supabase
             .from("movimientos")
@@ -48,7 +49,7 @@ export default function HomePage() {
         if (movimientosError)
           console.error("Error movimientos:", movimientosError);
 
-        // 🔹 Traer medios de pago
+        // Medios de pago
         const { data: mediosPagoData, error: mediosPagoError } = await supabase
           .from("medios_pago")
           .select("*")
@@ -68,7 +69,7 @@ export default function HomePage() {
     };
 
     fetchData();
-  }, [user, authLoading]);
+  }, [user, authLoading, supabase]);
 
   if (authLoading || loading) {
     return (
