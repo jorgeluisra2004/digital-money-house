@@ -16,7 +16,6 @@ export function AuthProvider({ children }) {
       .select("*")
       .eq("id", authId)
       .single();
-
     if (error) {
       console.error("Error fetching usuario:", error);
       return null;
