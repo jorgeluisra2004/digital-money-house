@@ -28,8 +28,11 @@ export default function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // Cierra el drawer al navegar
   useEffect(() => setOpen(false), [pathname]);
-  if (loading) return null;
+
+  // ✅ Considera logueado solo si hay un identificador real
+  const isLogged = Boolean(user?.id || user?.email);
 
   const DARK = "var(--dmh-dark, #232326)";
   const LIME = "var(--dmh-lime, #c7ff23)";
@@ -44,7 +47,6 @@ export default function Navbar() {
       className="sticky top-0 z-50 w-full border-b border-white/10"
       style={{ backgroundColor: DARK }}
     >
-      {/* 👇 sin max-w; padding mínimo a la izquierda */}
       <div className="flex h-16 w-full items-center justify-between pl-3 pr-4 md:pl-4 md:pr-6">
         {/* Izquierda */}
         <div className="flex items-center ml-5">
@@ -52,8 +54,8 @@ export default function Navbar() {
         </div>
 
         {/* Derecha desktop */}
-        {user ? (
-          <div className="hidden md:flex items-center">
+        <div className="hidden md:flex items-center">
+          {isLogged ? (
             <div
               className="flex items-center rounded-xl pl-2 pr-3 py-1"
               style={{ backgroundColor: "#2b2b2c" }}
@@ -69,29 +71,30 @@ export default function Navbar() {
                 Hola, {fullName || "Usuario"}
               </span>
             </div>
-          </div>
-        ) : (
-          <div className="hidden md:flex items-center gap-3">
-            <Link
-              href="/login"
-              className="rounded-md border-2 px-4 py-2 text-sm font-semibold"
-              style={{ borderColor: LIME, color: LIME }}
-            >
-              Ingresar
-            </Link>
-            <Link
-              href="/register"
-              className="rounded-md px-4 py-2 text-sm font-semibold"
-              style={{ backgroundColor: LIME, color: "#111" }}
-            >
-              Crear cuenta
-            </Link>
-          </div>
-        )}
+          ) : (
+            // 👇️ mostramos CTAs incluso si loading === true (no ocultamos el header)
+            <div className="flex items-center gap-3">
+              <Link
+                href="/login"
+                className="rounded-md border-2 px-4 py-2 text-sm font-semibold"
+                style={{ borderColor: LIME, color: LIME }}
+              >
+                Ingresar
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-md px-4 py-2 text-sm font-semibold"
+                style={{ backgroundColor: LIME, color: "#111" }}
+              >
+                Crear cuenta
+              </Link>
+            </div>
+          )}
+        </div>
 
         {/* Derecha móvil */}
         <div className="flex items-center gap-2 md:hidden">
-          {user ? (
+          {isLogged ? (
             <div
               className="grid h-8 w-10 place-items-center rounded-lg text-sm font-extrabold"
               style={{ backgroundColor: LIME, color: "#111" }}
@@ -118,7 +121,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Drawer móvil (derecha) */}
+      {/* Drawer móvil */}
       <div
         className={`md:hidden fixed inset-0 z-[60] transition-opacity ${
           open
@@ -189,7 +192,8 @@ export default function Navbar() {
                 );
               })}
             </ul>
-            {user ? (
+
+            {isLogged ? (
               <button
                 onClick={logout}
                 className="mt-3 w-full rounded-md px-3 py-3 text-left text-[15px]"

@@ -26,12 +26,13 @@ export default function DashboardSidebar() {
     return pathname === clean || pathname.startsWith(`${clean}/`);
   };
 
+  // src/components/DashboardSidebar.jsx (sólo el handler)
   const handleLogout = async () => {
     try {
-      await logout(); // tu contexto hace signOut + limpia LS
+      await logout();
     } finally {
-      // forzar navegación limpia a la landing/promo
-      window.location.replace("/"); // <- usa tu ruta pública ("/" o "/promo")
+      router.replace("/");
+      router.refresh();
     }
   };
 

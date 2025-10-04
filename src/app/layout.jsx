@@ -18,7 +18,10 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <body className="min-h-screen flex flex-col bg-[#111] overflow-x-hidden">
+      <body
+        className="min-h-screen flex flex-col bg-[#111] overflow-x-hidden"
+        suppressHydrationWarning
+      >
         <AuthProvider>
           <Shell>{children}</Shell>
         </AuthProvider>
