@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+.git
+.gitignore
+.vercel
+coverage
+Dockerfile
+docker-compose.yml
+docker-compose.prod.yml
+npm-debug.log*
+yarn*.log
+pnpm-lock.yaml
