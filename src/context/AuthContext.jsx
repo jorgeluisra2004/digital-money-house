@@ -1,3 +1,4 @@
+// /src/context/AuthContext.jsx
 "use client";
 import {
   createContext,
@@ -13,10 +14,10 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const supabase = getSupabaseClient();
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(null); // sesión de supabase
   const [user, setUser] = useState(null); // fila en "usuarios"
-  const [loading, setLoading] = useState(true); // solo para la carga INICIAL
-  const mountedRef = useRef(false); // evita dobles montajes en dev
+  const [loading, setLoading] = useState(true); // sólo para la carga inicial
+  const inited = useRef(false);
 
   const fetchUsuario = async (authId) => {
     try {
@@ -25,7 +26,6 @@ export function AuthProvider({ children }) {
         .select("*")
         .eq("id", authId)
         .single();
-
       if (error && status !== 406) {
         console.warn("fetchUsuario error:", error);
         return null;
@@ -37,54 +37,71 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Carga inicial + suscripción a cambios
   useEffect(() => {
-    if (mountedRef.current) return; // evita doble init por HMR
-    mountedRef.current = true;
+    if (inited.current) return;
+    inited.current = true;
 
     let unsub;
     (async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) console.warn("getSession error:", error);
-
         const current = data?.session ?? null;
         setSession(current);
-
         if (current?.user?.id) {
           const perfil = await fetchUsuario(current.user.id);
           setUser(perfil);
         }
       } finally {
-        setLoading(false); // <- solo se libera acá
+        setLoading(false); // <- sólo acá, una vez
       }
 
       const { data: sub } = supabase.auth.onAuthStateChange(
         async (event, newSession) => {
-          // No volvemos a "loading" con cada evento.
-          setSession(newSession ?? null);
-
-          if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-            if (newSession?.user?.id) {
-              const perfil = await fetchUsuario(newSession.user.id);
-              setUser(perfil);
-            }
-          } else if (event === "SIGNED_OUT") {
+          if (event === "SIGNED_OUT") {
+            setSession(null);
             setUser(null);
-          } else if (event === "TOKEN_REFRESHED") {
-            // Ignoramos para evitar parpadeos
+            return;
           }
+          // Para SIGNED_IN / USER_UPDATED / TOKEN_REFRESHED
+          if (newSession?.user?.id) {
+            setSession((prev) => {
+              // evita renders si no cambió el user.id
+              return prev?.user?.id === newSession.user.id ? prev : newSession;
+            });
+            const perfil = await fetchUsuario(newSession.user.id);
+            setUser(perfil);
+          }
+          // Importante: no tocamos `loading` acá
         }
       );
 
       unsub = sub?.subscription;
     })();
 
-    return () => unsub?.unsubscribe?.();
+    // Rehidratá al volver a foco/visibilidad
+    const rehydrate = async () => {
+      if (document.visibilityState === "visible") {
+        const { data } = await supabase.auth.getSession();
+        const s = data?.session ?? null;
+        if (s?.user?.id && !session?.user?.id) {
+          setSession(s);
+          const perfil = await fetchUsuario(s.user.id);
+          setUser(perfil);
+        }
+      }
+    };
+    window.addEventListener("focus", rehydrate);
+    document.addEventListener("visibilitychange", rehydrate);
+
+    return () => {
+      unsub?.unsubscribe?.();
+      window.removeEventListener("focus", rehydrate);
+      document.removeEventListener("visibilitychange", rehydrate);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Helpers de acción
   const login = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
