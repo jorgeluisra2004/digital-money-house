@@ -55,15 +55,15 @@ export default function CargarDineroPage() {
 
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data: row, error } = await supabase
           .from("cuentas")
           .select("id, saldo, cvu, alias")
           .eq("usuario_id", session.user.id)
-          .limit(1);
+          .maybeSingle();
 
         if (error) throw error;
 
-        if (!data || data.length === 0) {
+        if (!row) {
           const { data: created, error: insErr } = await supabase
             .from("cuentas")
             .insert([
@@ -74,7 +74,7 @@ export default function CargarDineroPage() {
           if (insErr) throw insErr;
           setCuenta(created);
         } else {
-          setCuenta(data[0]);
+          setCuenta(row);
         }
       } finally {
         setLoading(false);
@@ -104,6 +104,8 @@ export default function CargarDineroPage() {
     setRaw(onlyDigits);
   };
 
+  const canSubmit = !saving && monto > 0 && monto <= MAX_CARGA;
+
   const onSubmit = async (e) => {
     e?.preventDefault();
     if (!cuenta?.id || !session?.user?.id) return;
@@ -120,37 +122,14 @@ export default function CargarDineroPage() {
     setSaving(true);
     setError("");
     try {
-      const nuevoSaldo = saldoActual + monto;
+      // ✅ ÚNICA operación: RPC atómica en la DB
+      const { data: newSaldo, error: rpcErr } = await supabase.rpc(
+        "fn_cargar_dinero",
+        { p_cuenta: cuenta.id, p_monto: monto }
+      );
+      if (rpcErr) throw rpcErr;
 
-      // 1) Actualizar saldo
-      const { error: upErr } = await supabase
-        .from("cuentas")
-        .update({ saldo: nuevoSaldo })
-        .eq("id", cuenta.id);
-      if (upErr) throw upErr;
-
-      // 2) Registrar movimiento
-      const { error: movErr } = await supabase.from("movimientos").insert([
-        {
-          usuario_id: session.user.id,
-          tipo: "ingreso",
-          descripcion: "Ingresaste dinero",
-          destinatario: null,
-          fecha: new Date().toISOString(),
-          monto, // positivo
-        },
-      ]);
-      if (movErr) throw movErr;
-
-      // 3) Refetch autoritativo
-      const { data: refreshed, error: refErr } = await supabase
-        .from("cuentas")
-        .select("saldo")
-        .eq("id", cuenta.id)
-        .single();
-      if (refErr) throw refErr;
-
-      const saldoRef = Number(refreshed?.saldo ?? nuevoSaldo);
+      const saldoRef = Number(newSaldo);
       setCuenta((c) => ({ ...(c || {}), saldo: saldoRef }));
       setSuccess({ nuevoSaldo: saldoRef, cargo: monto });
       setRaw(""); // limpiar input
@@ -194,7 +173,7 @@ export default function CargarDineroPage() {
       {/* Formulario */}
       <form
         onSubmit={onSubmit}
-        noValidate // ← desactiva validación nativa
+        noValidate
         autoComplete="off"
         className="mt-5 bg-white rounded-2xl border border-black/10 shadow-sm overflow-hidden"
       >
@@ -219,7 +198,7 @@ export default function CargarDineroPage() {
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={!canSubmit}
               className="h-12 rounded-xl font-semibold shadow-md hover:brightness-95 transition disabled:opacity-60"
               style={{ background: "var(--dmh-lime)", color: "#0f0f0f" }}
             >

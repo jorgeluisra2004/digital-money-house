@@ -44,7 +44,7 @@ export default function TransferirPage() {
   const { session, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [cuenta, setCuenta] = useState(null); // { id, saldo, ... }
+  const [cuenta, setCuenta] = useState(null); // { id, saldo, cvu, alias }
   const [loading, setLoading] = useState(true);
 
   // ----- formulario -----
@@ -80,16 +80,16 @@ export default function TransferirPage() {
 
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        // Traer (o crear) la cuenta del usuario
+        const { data: row, error } = await supabase
           .from("cuentas")
           .select("id, saldo, cvu, alias")
           .eq("usuario_id", session.user.id)
-          .limit(1);
+          .maybeSingle();
 
         if (error) throw error;
 
-        if (!data || data.length === 0) {
-          // si no existe, la creo con saldo 0
+        if (!row) {
           const { data: created, error: insErr } = await supabase
             .from("cuentas")
             .insert([
@@ -100,7 +100,7 @@ export default function TransferirPage() {
           if (insErr) throw insErr;
           setCuenta(created);
         } else {
-          setCuenta(data[0]);
+          setCuenta(row);
         }
       } finally {
         setLoading(false);
@@ -131,6 +131,9 @@ export default function TransferirPage() {
     return "";
   };
 
+  const canSubmit =
+    !saving && !!destinatario && monto > 0 && monto <= saldoActual;
+
   const onSubmit = async (e) => {
     e?.preventDefault();
     if (!cuenta?.id || !session?.user?.id) return;
@@ -147,46 +150,23 @@ export default function TransferirPage() {
     setSaving(true);
     setError("");
     try {
-      const nuevoSaldo = saldoActual - monto;
-
-      // 1) actualizo saldo
-      const { error: upErr } = await supabase
-        .from("cuentas")
-        .update({ saldo: nuevoSaldo })
-        .eq("id", cuenta.id);
-      if (upErr) throw upErr;
-
-      // 2) inserto movimiento (egreso -> monto negativo)
-      const descripcionBase = `Transferiste a ${destinatario.nombre}`;
-      const descripcion = nota
-        ? `${descripcionBase} — ${nota}`
-        : descripcionBase;
-
-      const { error: movErr } = await supabase.from("movimientos").insert([
+      // ✅ ÚNICA operación: RPC atómica en la DB
+      const { data: newSaldo, error: rpcErr } = await supabase.rpc(
+        "fn_transferir_dinero",
         {
-          usuario_id: session.user.id,
-          tipo: "egreso",
-          descripcion,
-          destinatario: destinatario.nombre,
-          fecha: new Date().toISOString(),
-          monto: -monto, // negativo
-        },
-      ]);
-      if (movErr) throw movErr;
+          p_cuenta: cuenta.id,
+          p_monto: monto,
+          p_destinatario: destinatario?.nombre ?? null,
+          p_nota: (nota || "").trim() || null,
+        }
+      );
+      if (rpcErr) throw rpcErr;
 
-      // 3) refetch autoritativo de saldo
-      const { data: refreshed, error: refErr } = await supabase
-        .from("cuentas")
-        .select("saldo")
-        .eq("id", cuenta.id)
-        .single();
-      if (refErr) throw refErr;
-
-      const saldoRef = Number(refreshed?.saldo ?? nuevoSaldo);
+      const saldoRef = Number(newSaldo);
       setCuenta((c) => ({ ...(c || {}), saldo: saldoRef }));
       setSuccess({
         nuevoSaldo: saldoRef,
-        transferidoA: destinatario.nombre,
+        transferidoA: destinatario?.nombre ?? "",
         monto,
       });
       setRaw("");
@@ -331,7 +311,7 @@ export default function TransferirPage() {
             <div className="md:col-span-2 flex justify-end">
               <button
                 type="submit"
-                disabled={saving}
+                disabled={!canSubmit}
                 className="w-full md:w-[220px] h-12 rounded-xl font-semibold shadow-md hover:brightness-95 transition disabled:opacity-60"
                 style={{ background: "var(--dmh-lime)", color: "#0f0f0f" }}
               >
