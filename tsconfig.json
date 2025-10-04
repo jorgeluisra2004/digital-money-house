@@ -1,35 +1,32 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "strict": true,
     "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "types": ["node"],
-    "plugins": [{ "name": "next" }],
-    "paths": { "@/*": ["./src/*"] }
+    "jsx": "preserve",
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
+    "types": ["node"] // ⬅️ no agregues "jest" acá
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    "src/app/api/login/route.js",
-    "src/lib/supabaseAdmin.js",
-    "src/lib/supabaseClient.ts",
-    "src/context/AuthContext.jsx",
-    "src/app/providers/AuthProvider.client.jsx",
-    "src/app/layout.jsx",
-    "src/app/api/register/route.js",
-    "src/app/api/verify-code/route.js"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "test",
+    "__tests__",
+    "e2e",
+    "playwright",
+    "cypress",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "jest.config.*",
+    "vitest.config.*"
+  ]
 }
