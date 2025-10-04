@@ -5,13 +5,16 @@ export default function Footer() {
   const lime = "var(--dmh-lime)";
 
   return (
-    <footer className="mt-auto relative z-50 bg-[#2f2f34]" role="contentinfo">
-      <div className="w-full">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center md:justify-start justify-center">
-          <p className="text-[11px] md:text-xs" style={{ color: lime }}>
-            © {year} Digital Money House
-          </p>
-        </div>
+    <footer
+      role="contentinfo"
+      className="mt-auto relative z-50"
+      style={{ backgroundColor: "#2f2f34" }}
+    >
+      {/* 👇 sin max-w; siempre alineado a la izquierda con padding mínimo */}
+      <div className="w-full pl-3 pr-4 md:pl-4 md:pr-6 py-3 flex items-center justify-start">
+        <p className="text-[11px] md:text-xs" style={{ color: lime }}>
+          © {year} Digital Money House
+        </p>
       </div>
     </footer>
   );

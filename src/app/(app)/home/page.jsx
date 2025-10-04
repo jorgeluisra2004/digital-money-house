@@ -121,16 +121,9 @@ export default function HomePage() {
             <Link href="/tarjetas" className="hover:text-white">
               Ver tarjetas
             </Link>
-            <button
-              className="hover:text-white"
-              onClick={() =>
-                window.alert(
-                  `CVU: ${cuenta?.cvu || "-"}\nAlias: ${cuenta?.alias || "-"}`
-                )
-              }
-            >
-              Ver CVU
-            </button>
+            <Link href="/perfil" className="hover:text-white">
+              Ver tarjetas
+            </Link>
           </div>
         </div>
       </motion.div>

@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
+/* Fallback por si no existe la CSS var */
+const LIME = "var(--dmh-lime, #c9ff2a)";
+
 const NAV = [
   { href: "/home", label: "Inicio" },
   { href: "/actividad", label: "Actividad" },
@@ -26,13 +29,17 @@ export default function DashboardSidebar() {
     <aside
       aria-label="Sidebar"
       className="
-        hidden md:block fixed left-0 top-16 bottom-0 w-[260px]
-        overflow-y-auto overscroll-contain z-30
-        border-r border-black/20 bg-[#222]
+        hidden md:block fixed left-0 top-16 bottom-0 w-[280px]
+        z-30 overflow-y-auto overscroll-contain
+        border-r
       "
+      style={{
+        background: LIME, // fondo lima como en el diseño
+        borderRightColor: "rgba(0,0,0,.20)", // sutil divisor con el contenido
+      }}
     >
-      <nav className="px-4 py-6 text-sm">
-        <ul className="space-y-1">
+      <nav className="px-6 py-6">
+        <ul className="space-y-3">
           {NAV.map((item) => {
             const active = isActive(item.href);
             return (
@@ -41,29 +48,34 @@ export default function DashboardSidebar() {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={[
-                    "group flex items-center rounded-md px-3 py-2 transition",
-                    "text-white/85 hover:text-white hover:bg-white/5",
+                    "block rounded-none",
+                    "pl-4 pr-2 py-2", // misma separación que el modelo
+                    "text-[16px] leading-6",
                     active
-                      ? "text-white bg-white/5 border-l-4"
-                      : "border-l-4 border-transparent",
+                      ? "font-semibold text-[#0f0f0f]" // activo en negrita, sin fondo
+                      : "font-normal text-[#0f0f0f]",
+                    "hover:bg-black/[.06]", // hover sutil (no visible en captura)
+                    "transition-colors",
                   ].join(" ")}
-                  style={{
-                    borderLeftColor: active ? "var(--dmh-lime)" : "transparent",
-                  }}
                 >
-                  <span className="truncate">{item.label}</span>
+                  {item.label}
                 </Link>
               </li>
             );
           })}
         </ul>
 
-        <div className="mt-3 pt-3 border-t border-white/10" />
+        {/* separador y 'Cerrar sesión' desaturado como en la captura */}
+        <div
+          className="mt-4 pt-3 border-t"
+          style={{ borderColor: "rgba(0,0,0,.15)" }}
+        />
 
         <button
           type="button"
           onClick={() => logout?.()}
-          className="w-full text-left rounded-md px-3 py-2 text-white/80 hover:text-white hover:bg-white/5 transition"
+          className="w-full text-left pl-4 pr-2 py-2 text-[16px] leading-6 font-medium transition-colors"
+          style={{ color: "rgba(0,0,0,.45)" }} // gris verdoso del diseño
         >
           Cerrar sesión
         </button>
