@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 
-/* -------- helpers -------- */
 function detectBrand(raw) {
   const n = (raw || "").replace(/\D/g, "");
   if (/^4\d{12,18}$/.test(n)) return "visa";
@@ -28,11 +26,8 @@ function formatExpiry(raw) {
 }
 const last4 = (raw) => (raw || "").replace(/\D/g, "").slice(-4);
 
-/* ---------- Card Preview con animación de tema ---------- */
 function CardPreview({ number, name, expiry }) {
   const brand = detectBrand(number);
-
-  // Temas por marca (colores animables vía CSS vars)
   const THEMES = {
     visa: { bg1: "#0a1a2b", bg2: "#143a61", accent: "#1a73e8" },
     mastercard: { bg1: "#1e1413", bg2: "#3a1b17", accent: "#ff5f00" },
@@ -63,7 +58,6 @@ function CardPreview({ number, name, expiry }) {
         duration: 0.5,
       }}
     >
-      {/* brillo/acento animado */}
       <motion.div
         className="absolute -inset-0.5 rounded-xl pointer-events-none"
         style={{
@@ -73,7 +67,6 @@ function CardPreview({ number, name, expiry }) {
         animate={{ opacity: brand === "desconocida" ? 0.15 : 0.25 }}
         transition={{ duration: 0.4 }}
       />
-      {/* capa interior */}
       <div
         className="absolute inset-[2px] rounded-[14px]"
         style={{ background: "rgba(0,0,0,.15)" }}
@@ -85,7 +78,6 @@ function CardPreview({ number, name, expiry }) {
             {brand === "visa" ? "VISA" : brand === "mastercard" ? "MC" : ""}
           </div>
         </div>
-
         <div className="space-y-2">
           <div className="tracking-[0.25em] text-lg font-semibold">
             {pretty}
@@ -108,10 +100,9 @@ function CardPreview({ number, name, expiry }) {
   );
 }
 
-/* ---------- Página ---------- */
 export default function TarjetasPage() {
   const supabase = getSupabaseClient();
-  const { session, logout } = useAuth();
+  const { session } = useAuth();
 
   const [mode, setMode] = useState("list");
   const [cards, setCards] = useState([]);
@@ -174,7 +165,6 @@ export default function TarjetasPage() {
       ]);
       if (error) throw error;
 
-      // limpiar + recargar
       setNum("");
       setExp("");
       setName("");
@@ -203,191 +193,149 @@ export default function TarjetasPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6 md:gap-8">
-      {/* sidebar */}
-      <aside
-        className="hidden md:flex flex-col rounded-xl shadow-sm overflow-hidden"
-        style={{ backgroundColor: "var(--dmh-lime)" }}
-      >
-        <nav className="px-6 py-8 text-[#0f0f0f] font-medium space-y-2">
-          <Link
-            href="/home"
-            className="block text-black/80 hover:bg-black/10 rounded-md px-3 py-2"
-          >
-            Inicio
-          </Link>
-          <span className="block text-black/80">Actividad</span>
-          <span className="block text-black/80">Tu perfil</span>
-          <span className="block text-black/80">Cargar dinero</span>
-          <span className="block text-black/80">Pagar Servicios</span>
-          <span className="block font-semibold rounded-md px-3 py-2 bg-black/10">
-            Tarjetas
-          </span>
-          <button
-            onClick={async () => {
-              await logout();
-              window.location.replace("/login");
-            }}
-            className="mt-2 text-left inline-block text-black/75 hover:text-black"
-          >
-            Cerrar sesión
-          </button>
-        </nav>
-      </aside>
-
-      {/* contenido */}
-      <section className="w-full">
-        {mode === "form" ? (
-          <div className="bg-white/80 rounded-xl p-8 shadow border border-black/10">
-            <div className="mb-8 grid place-items-center">
-              <CardPreview
-                number={num}
-                name={name}
-                expiry={formatExpiry(exp)}
-              />
-            </div>
-
-            <form
-              onSubmit={handleSave}
-              className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-5"
-            >
-              <input
-                value={formatNumber(num)}
-                onChange={(e) => setNum(e.target.value)}
-                placeholder="Número de la tarjeta*"
-                className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
-              />
-              <input
-                value={formatExpiry(exp)}
-                onChange={(e) => setExp(e.target.value)}
-                placeholder="Fecha de vencimiento*"
-                className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
-              />
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nombre y apellido*"
-                className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
-              />
-              <input
-                value={cvv}
-                onChange={(e) =>
-                  setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))
-                }
-                placeholder="Código de seguridad*"
-                className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
-              />
-
-              <div className="md:col-span-2 flex justify-center mt-2">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full md:w-auto min-w-[280px] h-12 rounded-lg font-semibold hover:brightness-95 transition"
-                  style={{ backgroundColor: "var(--dmh-lime)", color: "#111" }}
-                >
-                  {saving ? "Guardando…" : "Continuar"}
-                </button>
-              </div>
-              <div className="md:col-span-2 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setMode("list")}
-                  className="text-sm text-gray-600 underline mt-1"
-                >
-                  Volver al listado
-                </button>
-              </div>
-            </form>
+    <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+      {/* SOLO contenido — el sidebar es global y fijo */}
+      {mode === "form" ? (
+        <div className="bg-white/80 rounded-xl p-8 shadow border border-black/10">
+          <div className="mb-8 grid place-items-center">
+            <CardPreview number={num} name={name} expiry={formatExpiry(exp)} />
           </div>
-        ) : (
-          <div className="space-y-6">
-            <div
-              className="rounded-xl p-6 flex items-center justify-between text-white"
-              style={{ background: "#1f1f1f" }}
-            >
-              <div className="font-semibold">
-                Agregá tu tarjeta de débito o crédito
-              </div>
+
+          <form
+            onSubmit={handleSave}
+            className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-5"
+          >
+            <input
+              value={formatNumber(num)}
+              onChange={(e) => setNum(e.target.value)}
+              placeholder="Número de la tarjeta*"
+              className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
+            />
+            <input
+              value={formatExpiry(exp)}
+              onChange={(e) => setExp(e.target.value)}
+              placeholder="Fecha de vencimiento*"
+              className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
+            />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nombre y apellido*"
+              className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
+            />
+            <input
+              value={cvv}
+              onChange={(e) =>
+                setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+              placeholder="Código de seguridad*"
+              className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
+            />
+
+            <div className="md:col-span-2 flex justify-center mt-2">
               <button
-                onClick={() => setMode("form")}
-                className="flex items-center gap-3 bg-[#2a2a2a] hover:bg-[#333] rounded-xl px-5 py-3 transition"
+                type="submit"
+                disabled={saving}
+                className="w-full md:w-auto min-w-[280px] h-12 rounded-lg font-semibold hover:brightness-95 transition"
+                style={{ backgroundColor: "var(--dmh-lime)", color: "#111" }}
               >
-                <span
-                  className="w-7 h-7 rounded-full grid place-items-center text-black"
-                  style={{ background: "var(--dmh-lime)" }}
-                >
-                  +
-                </span>
-                <span className="text-[var(--dmh-lime)] font-semibold">
-                  Nueva tarjeta
-                </span>
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  className="ml-2"
-                >
-                  <path
-                    d="M9 18l6-6-6-6"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                {saving ? "Guardando…" : "Continuar"}
               </button>
             </div>
-
-            <div className="bg-white rounded-xl shadow border border-black/10">
-              <div className="px-6 py-4 font-semibold">Tus tarjetas</div>
-              {loadingList ? (
-                <div className="px-6 py-10 text-gray-500">Cargando…</div>
-              ) : cards.length === 0 ? (
-                <div className="px-6 py-10 text-gray-500">
-                  Aún no agregaste tarjetas.
-                </div>
-              ) : (
-                <ul>
-                  {cards.map((c, idx) => {
-                    const terminada = (c?.numero_mascarado || "").slice(-4);
-                    return (
-                      <li key={c.id}>
-                        <div className="px-6 py-4 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span
-                              className="w-4 h-4 rounded-full"
-                              style={{ background: "var(--dmh-lime)" }}
-                            />
-                            <div className="text-gray-800">
-                              Terminada en {terminada}
-                              {c?.banco ? (
-                                <span className="text-gray-500">
-                                  {" "}
-                                  • {c.banco}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleDelete(c.id)}
-                            className="text-[crimson] hover:underline text-sm"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                        {idx < cards.length - 1 && (
-                          <hr className="border-t border-gray-200" />
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+            <div className="md:col-span-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setMode("list")}
+                className="text-sm text-gray-600 underline mt-1"
+              >
+                Volver al listado
+              </button>
             </div>
+          </form>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div
+            className="rounded-xl p-6 flex items-center justify-between text-white"
+            style={{ background: "#1f1f1f" }}
+          >
+            <div className="font-semibold">
+              Agregá tu tarjeta de débito o crédito
+            </div>
+            <button
+              onClick={() => setMode("form")}
+              className="flex items-center gap-3 bg-[#2a2a2a] hover:bg-[#333] rounded-xl px-5 py-3 transition"
+            >
+              <span
+                className="w-7 h-7 rounded-full grid place-items-center text-black"
+                style={{ background: "var(--dmh-lime)" }}
+              >
+                +
+              </span>
+              <span className="text-[var(--dmh-lime)] font-semibold">
+                Nueva tarjeta
+              </span>
+              <svg width="22" height="22" viewBox="0 0 24 24" className="ml-2">
+                <path
+                  d="M9 18l6-6-6-6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
           </div>
-        )}
-      </section>
+
+          <div className="bg-white rounded-xl shadow border border-black/10">
+            <div className="px-6 py-4 font-semibold">Tus tarjetas</div>
+            {loadingList ? (
+              <div className="px-6 py-10 text-gray-500">Cargando…</div>
+            ) : cards.length === 0 ? (
+              <div className="px-6 py-10 text-gray-500">
+                Aún no agregaste tarjetas.
+              </div>
+            ) : (
+              <ul>
+                {cards.map((c, idx) => {
+                  const terminada = (c?.numero_mascarado || "").slice(-4);
+                  return (
+                    <li key={c.id}>
+                      <div className="px-6 py-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="w-4 h-4 rounded-full"
+                            style={{ background: "var(--dmh-lime)" }}
+                          />
+                          <div className="text-gray-800">
+                            Terminada en {terminada}
+                            {c?.banco ? (
+                              <span className="text-gray-500">
+                                {" "}
+                                • {c.banco}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDelete(c.id)}
+                          className="text-[crimson] hover:underline text-sm"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                      {idx < cards.length - 1 && (
+                        <hr className="border-t border-gray-200" />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

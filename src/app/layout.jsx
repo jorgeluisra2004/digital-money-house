@@ -11,7 +11,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es">
       {/* Contenedor base: flex para que el footer se pegue abajo cuando exista */}
-      <body className="min-h-screen flex flex-col bg-[#efefef]">
+      <body className="min-h-screen flex flex-col bg-[#111] overflow-x-hidden">
         <AuthProvider>
           <Shell>{children}</Shell>
         </AuthProvider>

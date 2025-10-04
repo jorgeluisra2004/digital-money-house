@@ -1,12 +1,25 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { checkServerEnv } from "@/lib/envCheck";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+// ===== helper =====
+async function getLatestCodeRow(supabaseAdmin, email) {
+  const { data, error } = await supabaseAdmin
+    .from("email_codes")
+    .select("*")
+    .eq("email", email)
+    .eq("used", false)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return data?.[0] || null;
+}
 
 export async function POST(req) {
   try {
@@ -19,7 +32,7 @@ export async function POST(req) {
 
     if (!email) {
       return NextResponse.json(
-        { success: false, message: "Email requerido" },
+        { success: false, code: "MISSING_EMAIL", message: "Email requerido" },
         { status: 400 }
       );
     }
@@ -32,7 +45,7 @@ export async function POST(req) {
       .eq("email", email)
       .single();
 
-    // Paso 1: sólo email
+    // Paso 1: sólo email (descubre si existe y si es primer login)
     if (!password && !code) {
       if (userError || !user) return NextResponse.json({ exists: false });
       return NextResponse.json({
@@ -42,7 +55,7 @@ export async function POST(req) {
       });
     }
 
-    // Paso 3: código
+    // Paso 3: validar código (si te lo mandamos antes)
     if (code) {
       const { data: codeData, error: codeError } = await supabaseAdmin
         .from("email_codes")
@@ -56,14 +69,18 @@ export async function POST(req) {
 
       if (codeError || !codeData) {
         return NextResponse.json(
-          { success: false, message: "Código incorrecto o vencido" },
+          {
+            success: false,
+            code: "CODE_INVALID",
+            message: "Código incorrecto o vencido",
+          },
           { status: 401 }
         );
       }
 
       if (new Date(codeData.expires_at) < new Date()) {
         return NextResponse.json(
-          { success: false, message: "Código vencido" },
+          { success: false, code: "CODE_EXPIRED", message: "Código vencido" },
           { status: 401 }
         );
       }
@@ -72,7 +89,6 @@ export async function POST(req) {
         .from("email_codes")
         .update({ used: true })
         .eq("id", codeData.id);
-
       await supabaseAdmin
         .from("usuarios")
         .update({ last_login: new Date().toISOString() })
@@ -89,19 +105,31 @@ export async function POST(req) {
     // Paso 2: password
     if (!user || userError) {
       return NextResponse.json(
-        { success: false, message: "Usuario no encontrado" },
+        {
+          success: false,
+          code: "USER_NOT_FOUND",
+          message: "Usuario no encontrado",
+        },
         { status: 404 }
       );
     }
     if (!password) {
       return NextResponse.json(
-        { success: false, message: "Contraseña requerida" },
+        {
+          success: false,
+          code: "MISSING_PASSWORD",
+          message: "Contraseña requerida",
+        },
         { status: 400 }
       );
     }
     if (!user.password) {
       return NextResponse.json(
-        { success: false, message: "Contraseña no registrada" },
+        {
+          success: false,
+          code: "NO_PASSWORD",
+          message: "Contraseña no registrada",
+        },
         { status: 401 }
       );
     }
@@ -109,16 +137,41 @@ export async function POST(req) {
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) {
       return NextResponse.json(
-        { success: false, message: "Contraseña incorrecta" },
+        {
+          success: false,
+          code: "INVALID_PASSWORD",
+          message: "Contraseña incorrecta",
+        },
         { status: 401 }
       );
     }
 
+    // ¿Es primer login? -> enviar código 2FA con rate limit
     const isFirstLogin = !user.last_login;
-
     if (isFirstLogin) {
+      // Si hay un código válido emitido hace <60s, rate-limit (evitamos spam)
+      const latest = await getLatestCodeRow(supabaseAdmin, email);
+      const now = Date.now();
+      if (latest) {
+        const createdAt = new Date(latest.created_at).getTime();
+        const ageSec = Math.floor((now - createdAt) / 1000);
+        if (ageSec < 60) {
+          return NextResponse.json(
+            {
+              success: true,
+              needsVerification: true,
+              code: "RATE_LIMITED",
+              message: "Esperá para reenviar otro código",
+              retryAfter: 60 - ageSec,
+              userId: user.id,
+            },
+            { status: 200 }
+          );
+        }
+      }
+
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
-      const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      const expires_at = new Date(now + 10 * 60 * 1000).toISOString();
 
       await supabaseAdmin
         .from("email_codes")
@@ -151,11 +204,13 @@ export async function POST(req) {
       return NextResponse.json({
         success: true,
         needsVerification: true,
-        message: "Contraseña válida. Código enviado (primera vez).",
+        message: "Contraseña válida. Código enviado.",
         userId: user.id,
+        retryAfter: 60,
       });
     }
 
+    // Login normal (sin 2FA)
     await supabaseAdmin
       .from("usuarios")
       .update({ last_login: new Date().toISOString() })
@@ -170,6 +225,9 @@ export async function POST(req) {
   } catch (err) {
     console.error("❌ Error en /api/login:", err);
     const message = err?.message || "Error interno";
-    return NextResponse.json({ success: false, message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, code: "INTERNAL", message },
+      { status: 500 }
+    );
   }
 }

@@ -11,46 +11,64 @@ export async function POST(req) {
     const { email, code } = await req.json();
 
     if (!email || !code) {
-      return NextResponse.json({ message: "Faltan campos" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, code: "MISSING_FIELDS", message: "Faltan campos" },
+        { status: 400 }
+      );
     }
 
     const normalizedEmail = email.toLowerCase().trim();
     const normalizedCode = String(code).trim();
 
-    const { data: codes, error } = await supabaseAdmin
+    const { data: record, error } = await supabaseAdmin
       .from("email_codes")
       .select("*")
       .eq("email", normalizedEmail)
       .eq("code", normalizedCode)
       .eq("used", false)
       .order("created_at", { ascending: false })
-      .limit(1);
+      .limit(1)
+      .single();
 
-    if (error || !codes || codes.length === 0) {
-      return NextResponse.json({ message: "Código inválido" }, { status: 400 });
+    if (error || !record) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "CODE_INVALID",
+          message: "Código incorrecto o vencido",
+        },
+        { status: 401 }
+      );
     }
 
-    const record = codes[0];
-
     if (new Date(record.expires_at) < new Date()) {
-      return NextResponse.json({ message: "Código expirado" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, code: "CODE_EXPIRED", message: "Código vencido" },
+        { status: 401 }
+      );
     }
 
     await supabaseAdmin
       .from("email_codes")
       .update({ used: true })
       .eq("id", record.id);
-
     await supabaseAdmin
       .from("usuarios")
       .update({ last_login: new Date().toISOString() })
       .eq("email", normalizedEmail);
 
-    return NextResponse.json({ message: "Código verificado ✅" });
+    return NextResponse.json({
+      success: true,
+      message: "Código verificado ✅",
+    });
   } catch (err) {
     console.error("❌ Error en verify-code:", err);
     return NextResponse.json(
-      { message: "Error interno en el servidor" },
+      {
+        success: false,
+        code: "INTERNAL",
+        message: "Error interno en el servidor",
+      },
       { status: 500 }
     );
   }

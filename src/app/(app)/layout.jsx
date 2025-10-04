@@ -3,10 +3,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import Header from "@/components/Navbar";
+import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import DashboardSidebar from "@/components/DashboardSidebar";
 
-export default function AppLayout({ children }) {
+export default function Layout({ children }) {
   const { session, loading } = useAuth();
   const router = useRouter();
 
@@ -24,8 +25,13 @@ export default function AppLayout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#efefef]">
-      <Header />
-      <main className="flex-1">{children}</main>
+      <Navbar />
+      <DashboardSidebar />
+      <main className="flex-1 md:ml-[260px]">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
+          {children}
+        </div>
+      </main>
       <Footer />
     </div>
   );
