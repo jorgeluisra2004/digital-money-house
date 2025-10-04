@@ -1,27 +1,21 @@
-version: "3.9"
-
-x-env: &default-env
-  NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-  # Dev helpers
-  CHOKIDAR_USEPOLLING: "true"        # hot-reload más estable en Windows/WLS2
-  WATCHPACK_POLLING: "true"
-
+# docker-compose.yml
 services:
   web:
-    image: node:20
+    image: node:20-alpine
     container_name: dmh-web-dev
     working_dir: /app
     volumes:
-      - .:/app
-      - /app/node_modules
+      - .:/app:cached
+      - node_modules:/app/node_modules
     ports:
       - "3000:3000"
-    environment: *default-env
     env_file:
-      - .env.local
-    command: >
-      sh -c "npm i --legacy-peer-deps && npm run dev"
+      - .env.local               # <-- pon aquí tus NEXT_PUBLIC_...
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    command: sh -lc "test -x node_modules/.bin/next || npm ci --prefer-offline --no-audit --fund=false;
+      npm run dev"
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').request({host:'localhost',port:3000,path:'/'},r=>process.exit(r.statusCode?0:1)).on('error',()=>process.exit(1)).end()"]
       interval: 10s
@@ -29,12 +23,11 @@ services:
       retries: 10
 
   mailhog:
-    image: mailhog/mailhog
+    image: mailhog/mailhog:latest
     container_name: dmh-mailhog
     ports:
       - "8025:8025"
     restart: unless-stopped
 
-networks:
-  default:
-    name: dmh-net
+volumes:
+  node_modules:
