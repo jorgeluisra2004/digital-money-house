@@ -15,6 +15,7 @@ const PRIVATE_PREFIXES = [
   "/perfil",
   "/pagar-servicios",
   "/transferir",
+  "/cargar-dinero",
 ];
 
 export default function Shell({ children }) {

@@ -35,6 +35,7 @@ export default function HomePage() {
       style: "currency",
       currency: "ARS",
     }).format(Number(n || 0));
+
   const fmtDateDay = (iso) =>
     new Date(iso).toLocaleDateString("es-AR", { weekday: "long" });
 
@@ -47,12 +48,8 @@ export default function HomePage() {
     );
   }, [query, movimientos]);
 
-  const saldoMostrado = useMemo(() => {
-    if (!cuenta) return 0;
-    const s = Number(cuenta.saldo ?? 0);
-    if (Math.abs(s) > 0.0001) return s;
-    return movimientos.reduce((acc, m) => acc + Number(m.monto || 0), 0);
-  }, [cuenta, movimientos]);
+  // ✅ ÚNICA fuente de verdad: el saldo guardado en la DB
+  const saldoMostrado = Number(cuenta?.saldo ?? 0);
 
   useEffect(() => {
     const load = async () => {
@@ -64,11 +61,13 @@ export default function HomePage() {
           .select("*")
           .eq("id", session.user.id)
           .single();
+
         const { data: cuentas } = await supabase
           .from("cuentas")
           .select("*")
           .eq("usuario_id", session.user.id)
           .limit(1);
+
         const { data: movs } = await supabase
           .from("movimientos")
           .select("*")

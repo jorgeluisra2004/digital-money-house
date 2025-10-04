@@ -1,5 +1,4 @@
 "use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -15,23 +14,13 @@ const NAV = [
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
-  const { logout, supabase } = useAuth() || {};
-
-  const onLogout = async () => {
-    try {
-      if (typeof logout === "function") await logout();
-      else if (supabase?.auth?.signOut) await supabase.auth.signOut();
-    } finally {
-      if (typeof window !== "undefined") window.location.replace("/login");
-    }
-  };
+  const { logout } = useAuth() || {};
 
   return (
     <aside
       className="
-        hidden md:block fixed left-0 top-16 bottom-0
-        w-[260px] overflow-y-auto border-r border-black/10
-        z-30
+        hidden md:block fixed left-0 top-16 bottom-0 w-[260px]
+        overflow-y-auto border-r border-black/10 z-30
       "
       style={{ backgroundColor: "var(--dmh-lime)" }}
       aria-label="Sidebar"
@@ -55,7 +44,7 @@ export default function DashboardSidebar() {
           );
         })}
         <button
-          onClick={onLogout}
+          onClick={logout}
           className="mt-2 block text-left w-full rounded-md px-3 py-2 text-black/75 hover:text-black"
         >
           Cerrar sesión
