@@ -1,40 +1,91 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export default function Hero() {
-  const [bg, setBg] = useState("/landing-bg.webp");
-  const inputRef = useRef(null);
+  const supabase = getSupabaseClient();
+  const [data, setData] = useState(null);
 
-  const onPick = (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setBg(URL.createObjectURL(f));
-  };
+  const defaults = useMemo(
+    () => ({
+      title: "De ahora en\nadelante, hacés\nmás con tu dinero",
+      subtitle: "Tu nueva billetera virtual",
+      bg: "/landing-bg.jpg",
+      card1_title: "Transferí dinero",
+      card1_body:
+        "Desde Digital Money House vas a poder transferir dinero a otras cuentas, así como también recibir transferencias y nuclear tu capital en nuestra billetera virtual",
+      card2_title: "Pago de servicios",
+      card2_body:
+        "Pagá mensualmente los servicios en 3 simples clicks. Fácil, rápido y conveniente. Olvidate de las facturas en papel",
+    }),
+    []
+  );
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data: row, error } = await supabase
+        .from("hero_content")
+        .select("*")
+        .eq("slug", "home")
+        .single();
+
+      if (error) {
+        if (alive) setData(defaults);
+        return;
+      }
+
+      let bg = row?.bg_url || null;
+      if (!bg && row?.bg_path) {
+        const { data: pub } = supabase.storage
+          .from("landing")
+          .getPublicUrl(row.bg_path);
+        bg = pub?.publicUrl || null;
+      }
+
+      if (alive)
+        setData({
+          title: row?.title || defaults.title,
+          subtitle: row?.subtitle || defaults.subtitle,
+          bg: bg || defaults.bg,
+          card1_title: row?.card1_title || defaults.card1_title,
+          card1_body: row?.card1_body || defaults.card1_body,
+          card2_title: row?.card2_title || defaults.card2_title,
+          card2_body: row?.card2_body || defaults.card2_body,
+        });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [supabase, defaults]);
+
+  const lime = "var(--dmh-lime)";
+  const bg = data?.bg || defaults.bg;
+  const titleLines = (data?.title || defaults.title)
+    .replace(/\\n/g, "\n")
+    .split("\n");
+  const subParts = (data?.subtitle || defaults.subtitle).split(
+    /(billetera virtual)/i
+  );
 
   return (
-    // Ajustá estas 2 variables si cambiaste alturas:
-    // --header-h: 64px (Navbar h-16)
-    // --footer-h: 48px (Footer h-12)
     <section
       className="relative isolate overflow-hidden"
       style={{
-        // el Hero ocupa exactamente el alto de la ventana menos header y footer
-        minHeight:
-          "calc(100svh - var(--header-h, 64px) - var(--footer-h, 48px))",
-        // variables
+        // ⚠️ usar HEIGHT (no minHeight) para que el hero llegue justo hasta el footer
+        height: "calc(100dvh - var(--header-h, 64px) - var(--footer-h, 48px))",
         ["--header-h"]: "64px",
         ["--footer-h"]: "48px",
-        ["--franja-h"]: "128px", // alto de la franja lima
-        ["--cards-shift"]: "40px", // cuánto se montan las cards sobre la franja
+        ["--franja-h"]: "136px",
+        ["--cards-gap"]: "16px", // separación de las cards al footer
       }}
     >
-      {/* Fondo */}
+      {/* Fondo + overlay */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-center bg-cover"
+        className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: `url(${bg})` }}
       />
-      {/* Overlay */}
       <div
         aria-hidden
         className="absolute inset-0"
@@ -44,125 +95,86 @@ export default function Hero() {
         }}
       />
 
-      {/* Contenido vertical: texto arriba, cards abajo */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 lg:px-20 h-full flex flex-col">
-        {/* Titular */}
-        <div className="pt-8 md:pt-12">
-          <h1 className="text-white font-semibold leading-tight max-w-3xl text-[34px] md:text-5xl lg:text-6xl">
-            De ahora en
-            <br className="hidden md:block" /> adelante, hacés
-            <br className="hidden md:block" /> más con tu dinero
+      {/* Contenido */}
+      <div className="relative z-10 h-full flex flex-col">
+        {/* Texto superior alineado con navbar */}
+        <div className="pt-8 md:pt-12 pl-3 pr-4 md:pl-4 md:pr-6 lg:pl-10 lg:pr-10 max-w-[820px]">
+          <h1 className="text-white font-semibold leading-tight text-[34px] md:text-5xl lg:text-6xl">
+            {titleLines.map((line, i) => (
+              <span key={i}>
+                {line}
+                {i < titleLines.length - 1 && (
+                  <br className="hidden md:block" />
+                )}
+              </span>
+            ))}
           </h1>
-          <p
-            className="mt-4 text-2xl md:text-2xl font-semibold"
-            style={{ color: "var(--dmh-lime)" }}
-          >
-            Tu nueva <span className="font-extrabold">billetera virtual</span>
+          <p className="mt-4 text-2xl font-semibold" style={{ color: lime }}>
+            {subParts.map((p, i) =>
+              /billetera virtual/i.test(p) ? (
+                <span key={i} className="font-extrabold">
+                  {p}
+                </span>
+              ) : (
+                <span key={i}>{p}</span>
+              )
+            )}
           </p>
         </div>
 
-        {/* Zona inferior (se pega al fondo) */}
-        <div className="relative mt-auto">
-          {/* Franja lima pegada al borde inferior del Hero */}
+        {/* Banda y cards pegadas al footer */}
+        <div className="relative mt-auto h-0">
+          {/* Banda lima tocando el borde inferior del hero */}
           <div
             aria-hidden
-            className="pointer-events-none absolute left-4 right-4 rounded-t-[22px]"
+            className="absolute left-0 right-0 rounded-t-[22px]"
             style={{
               height: "var(--franja-h)",
               bottom: 0,
-              background: "var(--dmh-lime)",
+              background: lime,
               boxShadow: "0 -8px 40px rgba(0,0,0,.25)",
               zIndex: 5,
             }}
           />
 
-          {/* Orejas (quedan recortadas por overflow del section) */}
+          {/* Cards: ancladas al borde inferior del HERO */}
           <div
-            aria-hidden
-            className="pointer-events-none absolute rounded-full"
-            style={{
-              width: 180,
-              height: 180,
-              background: "var(--dmh-lime)",
-              left: -64,
-              bottom: -48,
-              zIndex: 4,
-            }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute rounded-full"
-            style={{
-              width: 180,
-              height: 180,
-              background: "var(--dmh-lime)",
-              right: -64,
-              bottom: -48,
-              zIndex: 4,
-            }}
-          />
-
-          {/* Cards: ancladas al fondo, montadas sobre la franja */}
-          <div
-            className="relative z-20"
-            style={{ transform: "translateY(calc(-1 * var(--cards-shift)))" }}
+            className="absolute left-0 right-0 z-20"
+            style={{ bottom: "var(--cards-gap)" }}
           >
-            <div className="flex flex-col md:flex-row gap-6 items-stretch">
+            <div className="mx-auto max-w-6xl px-6 lg:px-20 flex flex-col md:flex-row gap-6 items-stretch">
               <article
                 className="bg-white rounded-[28px] p-7 md:w-1/2"
                 style={{ boxShadow: "0 16px 32px rgba(0,0,0,.25)" }}
               >
                 <h2 className="text-3xl font-extrabold text-[#111]">
-                  Transferí dinero
+                  {data?.card1_title || defaults.card1_title}
                 </h2>
                 <div
-                  className="w-20 h-1 mt-4 mb-4"
-                  style={{ background: "var(--dmh-lime)" }}
+                  className="mt-3 mb-5 h-[3px] rounded-sm"
+                  style={{ background: lime }}
                 />
                 <p className="text-gray-700 leading-relaxed">
-                  Desde Digital Money House vas a poder transferir dinero a
-                  otras cuentas, así como también recibir transferencias y
-                  nuclear tu capital en nuestra billetera virtual
+                  {data?.card1_body || defaults.card1_body}
                 </p>
               </article>
-
               <article
                 className="bg-white rounded-[28px] p-7 md:w-1/2"
                 style={{ boxShadow: "0 16px 32px rgba(0,0,0,.25)" }}
               >
                 <h2 className="text-3xl font-extrabold text-[#111]">
-                  Pago de servicios
+                  {data?.card2_title || defaults.card2_title}
                 </h2>
                 <div
-                  className="w-20 h-1 mt-4 mb-4"
-                  style={{ background: "var(--dmh-lime)" }}
+                  className="mt-3 mb-5 h-[3px] rounded-sm"
+                  style={{ background: lime }}
                 />
                 <p className="text-gray-700 leading-relaxed">
-                  Pagá mensualmente los servicios en 3 simples clicks. Fácil,
-                  rápido y conveniente. Olvidate de las facturas en papel
+                  {data?.card2_body || defaults.card2_body}
                 </p>
               </article>
             </div>
           </div>
-        </div>
-
-        {/* (opcional) Cambiar imagen para preview */}
-        <div className="pt-2">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="text-xs underline text-white/80 hover:text-white"
-            title="Cambiar imagen de fondo"
-          >
-            Cambiar imagen
-          </button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={onPick}
-          />
         </div>
       </div>
     </section>
