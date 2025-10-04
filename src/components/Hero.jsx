@@ -28,7 +28,7 @@ export default function Hero() {
         .from("hero_content")
         .select("*")
         .eq("slug", "home")
-        .single();
+        .maybeSingle();
 
       if (error) {
         if (alive) setData(defaults);

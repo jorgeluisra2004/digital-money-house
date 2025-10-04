@@ -4,33 +4,73 @@
 import { createClient } from "@supabase/supabase-js";
 
 function makeSSRStub() {
-  const resp = { data: null, error: null };
-  const noop = async () => resp;
+  const ok = (data = null, error = null) => Promise.resolve({ data, error });
+
+  // Builder de filtros (encadenable)
+  const filter = {
+    eq() {
+      return filter;
+    },
+    match() {
+      return filter;
+    },
+    order() {
+      return filter;
+    },
+    limit() {
+      return filter;
+    },
+    range() {
+      return filter;
+    },
+    in() {
+      return filter;
+    },
+    is() {
+      return filter;
+    },
+    not() {
+      return filter;
+    },
+    // Métodos “terminales”
+    single: () => ok(),
+    maybeSingle: () => ok(),
+  };
+
+  // Builder por tabla
+  const table = {
+    // 👇 NO async: debe devolver el builder para poder encadenar .eq().single()
+    select() {
+      return filter;
+    },
+    insert: () => ok(),
+    update: () => ok(),
+    delete: () => ok(),
+  };
+
   const subscription = { unsubscribe() {} };
 
   return {
     from() {
-      const chain = {
-        select: async () => resp,
-        insert: noop,
-        update: noop,
-        delete: noop,
-        eq() {
-          return chain;
-        },
-        single: async () => resp,
-        order() {
-          return chain;
-        },
-      };
-      return chain;
+      return table;
     },
+    rpc: () => ok(),
     auth: {
-      getSession: async () => ({ data: { session: null }, error: null }),
-      getUser: async () => ({ data: { user: null }, error: null }),
+      getSession: () =>
+        Promise.resolve({ data: { session: null }, error: null }),
+      getUser: () => Promise.resolve({ data: { user: null }, error: null }),
       onAuthStateChange: () => ({ data: { subscription } }),
-      signInWithPassword: noop,
-      signOut: async () => {},
+      signInWithPassword: () => ok(),
+      signOut: () => ok(),
+    },
+    storage: {
+      from() {
+        return {
+          getPublicUrl: () => ({ data: { publicUrl: "" }, error: null }),
+          upload: () => ok(),
+          remove: () => ok(),
+        };
+      },
     },
   };
 }
@@ -38,6 +78,7 @@ function makeSSRStub() {
 let _client = null;
 
 export function getSupabaseClient() {
+  // En SSR devolvemos el stub para evitar llamadas de red
   if (typeof window === "undefined") return makeSSRStub();
   if (_client) return _client;
 
@@ -46,7 +87,7 @@ export function getSupabaseClient() {
 
   if (!url || !anon) {
     console.warn(
-      "⚠️ NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY no están definidas."
+      "⚠️ Falta NEXT_PUBLIC_SUPABASE_URL/ANON_KEY; usando stub local."
     );
     return makeSSRStub();
   }
@@ -58,5 +99,6 @@ export function getSupabaseClient() {
       detectSessionInUrl: true,
     },
   });
+
   return _client;
 }
