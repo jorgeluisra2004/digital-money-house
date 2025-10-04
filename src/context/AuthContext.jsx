@@ -12,11 +12,32 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 
 const AuthContext = createContext(null);
 
+function clearAuthStorage() {
+  if (typeof window === "undefined") return;
+  try {
+    // Borra cualquier token de supabase y claves propias
+    const ls = window.localStorage;
+    const keys = Object.keys(ls);
+    keys.forEach((k) => {
+      if (
+        k.startsWith("sb-") ||
+        k.includes("supabase.auth.token") ||
+        k === "dmh-auth" ||
+        k === "dmh_token" ||
+        k === "dmh_refresh" ||
+        k === "dmh_user"
+      ) {
+        ls.removeItem(k);
+      }
+    });
+  } catch {}
+}
+
 export function AuthProvider({ children }) {
   const supabase = getSupabaseClient();
-  const [session, setSession] = useState(null); // sesión de supabase
-  const [user, setUser] = useState(null); // fila en "usuarios"
-  const [loading, setLoading] = useState(true); // sólo para la carga inicial
+  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const inited = useRef(false);
 
   const fetchUsuario = async (authId) => {
@@ -26,13 +47,9 @@ export function AuthProvider({ children }) {
         .select("*")
         .eq("id", authId)
         .single();
-      if (error && status !== 406) {
-        console.warn("fetchUsuario error:", error);
-        return null;
-      }
+      if (error && status !== 406) return null;
       return data ?? null;
-    } catch (e) {
-      console.warn("fetchUsuario exception:", e);
+    } catch {
       return null;
     }
   };
@@ -44,8 +61,7 @@ export function AuthProvider({ children }) {
     let unsub;
     (async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) console.warn("getSession error:", error);
+        const { data } = await supabase.auth.getSession();
         const current = data?.session ?? null;
         setSession(current);
         if (current?.user?.id) {
@@ -53,7 +69,7 @@ export function AuthProvider({ children }) {
           setUser(perfil);
         }
       } finally {
-        setLoading(false); // <- sólo acá, una vez
+        setLoading(false);
       }
 
       const { data: sub } = supabase.auth.onAuthStateChange(
@@ -63,23 +79,18 @@ export function AuthProvider({ children }) {
             setUser(null);
             return;
           }
-          // Para SIGNED_IN / USER_UPDATED / TOKEN_REFRESHED
           if (newSession?.user?.id) {
-            setSession((prev) => {
-              // evita renders si no cambió el user.id
-              return prev?.user?.id === newSession.user.id ? prev : newSession;
-            });
+            setSession((prev) =>
+              prev?.user?.id === newSession.user.id ? prev : newSession
+            );
             const perfil = await fetchUsuario(newSession.user.id);
             setUser(perfil);
           }
-          // Importante: no tocamos `loading` acá
         }
       );
-
       unsub = sub?.subscription;
     })();
 
-    // Rehidratá al volver a foco/visibilidad
     const rehydrate = async () => {
       if (document.visibilityState === "visible") {
         const { data } = await supabase.auth.getSession();
@@ -117,9 +128,14 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setSession(null);
-    setUser(null);
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      // ✅ 3) al cerrar sesión, se eliminan los tokens del localStorage
+      clearAuthStorage();
+      setSession(null);
+      setUser(null);
+    }
   };
 
   const refreshProfile = async () => {

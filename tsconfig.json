@@ -11,17 +11,25 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "types": ["jest", "node"],
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/login/route.js", "src/lib/supabaseAdmin.js", "src/lib/supabaseClient.ts", "src/context/AuthContext.jsx", "src/app/providers/AuthProvider.client.jsx", "src/app/layout.jsx", "src/app/api/register/route.js", "src/app/api/verify-code/route.js"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "src/app/api/login/route.js",
+    "src/lib/supabaseAdmin.js",
+    "src/lib/supabaseClient.ts",
+    "src/context/AuthContext.jsx",
+    "src/app/providers/AuthProvider.client.jsx",
+    "src/app/layout.jsx",
+    "src/app/api/register/route.js",
+    "src/app/api/verify-code/route.js"
+  ],
   "exclude": ["node_modules"]
 }

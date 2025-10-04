@@ -1,10 +1,10 @@
+// /src/components/DashboardSidebar.jsx
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
-/* Fallback por si no existe la CSS var */
 const LIME = "var(--dmh-lime, #c9ff2a)";
 
 const NAV = [
@@ -18,6 +18,7 @@ const NAV = [
 
 export default function DashboardSidebar() {
   const pathname = (usePathname() || "").replace(/\/+$/, "") || "/";
+  const router = useRouter();
   const { logout } = useAuth() || {};
 
   const isActive = (href) => {
@@ -25,17 +26,22 @@ export default function DashboardSidebar() {
     return pathname === clean || pathname.startsWith(`${clean}/`);
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout(); // tu contexto hace signOut + limpia LS
+    } finally {
+      // forzar navegación limpia a la landing/promo
+      window.location.replace("/"); // <- usa tu ruta pública ("/" o "/promo")
+    }
+  };
+
   return (
     <aside
       aria-label="Sidebar"
-      className="
-        hidden md:block fixed left-0 top-16 bottom-0 w-[280px]
-        z-30 overflow-y-auto overscroll-contain
-        border-r
-      "
+      className="hidden md:block fixed left-0 top-16 bottom-0 w-[280px] z-30 overflow-y-auto overscroll-contain border-r"
       style={{
-        background: LIME, // fondo lima como en el diseño
-        borderRightColor: "rgba(0,0,0,.20)", // sutil divisor con el contenido
+        background: LIME,
+        borderRightColor: "rgba(0,0,0,.20)",
       }}
     >
       <nav className="px-6 py-6">
@@ -49,12 +55,12 @@ export default function DashboardSidebar() {
                   aria-current={active ? "page" : undefined}
                   className={[
                     "block rounded-none",
-                    "pl-4 pr-2 py-2", // misma separación que el modelo
+                    "pl-4 pr-2 py-2",
                     "text-[16px] leading-6",
                     active
-                      ? "font-semibold text-[#0f0f0f]" // activo en negrita, sin fondo
+                      ? "font-semibold text-[#0f0f0f]"
                       : "font-normal text-[#0f0f0f]",
-                    "hover:bg-black/[.06]", // hover sutil (no visible en captura)
+                    "hover:bg-black/[.06]",
                     "transition-colors",
                   ].join(" ")}
                 >
@@ -65,7 +71,6 @@ export default function DashboardSidebar() {
           })}
         </ul>
 
-        {/* separador y 'Cerrar sesión' desaturado como en la captura */}
         <div
           className="mt-4 pt-3 border-t"
           style={{ borderColor: "rgba(0,0,0,.15)" }}
@@ -73,9 +78,9 @@ export default function DashboardSidebar() {
 
         <button
           type="button"
-          onClick={() => logout?.()}
+          onClick={handleLogout}
           className="w-full text-left pl-4 pr-2 py-2 text-[16px] leading-6 font-medium transition-colors"
-          style={{ color: "rgba(0,0,0,.45)" }} // gris verdoso del diseño
+          style={{ color: "rgba(0,0,0,.45)" }}
         >
           Cerrar sesión
         </button>
