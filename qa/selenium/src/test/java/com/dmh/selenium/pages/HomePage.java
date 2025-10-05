@@ -15,7 +15,7 @@ public class HomePage {
     private final WebDriverWait wait;
     private final String baseUrl;
 
-    private final By search = By.cssSelector("input[placeholder*='Buscar'][placeholder*='actividad']");
+    private final By search = By.cssSelector("input[placeholder*='buscar' i]");
     private final By ctaActividad = By.xpath("//button[.//text()[contains(.,'Ver toda la actividad')]]");
 
     private static String resolveBaseUrl() {
@@ -27,14 +27,6 @@ public class HomePage {
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
-    /* ctor simple */
-    public HomePage(WebDriver driver) {
-        this.driver = driver;
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-        this.baseUrl = resolveBaseUrl();
-    }
-
-    /* ==== NUEVO: ctor usado por tus tests ==== */
     public HomePage(WebDriver driver, WebDriverWait wait, String baseUrl) {
         this.driver = driver;
         this.wait = (wait != null) ? wait : new WebDriverWait(driver, Duration.ofSeconds(15));

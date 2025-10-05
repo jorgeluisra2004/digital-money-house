@@ -6,12 +6,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
-import org.openqa.selenium.By;
+import org.openqa.selenium.PageLoadStrategy;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
@@ -40,17 +38,31 @@ public abstract class BaseTest {
 
     @BeforeEach
     void openBrowser() {
-        ChromeOptions options = new ChromeOptions();
         boolean headless = Boolean.parseBoolean(
                 System.getProperty("HEADLESS",
                         String.valueOf(Boolean.parseBoolean(System.getenv("HEADLESS") == null ? "true" : System.getenv("HEADLESS"))))
         );
+
+        ChromeOptions options = new ChromeOptions();
+        options.setPageLoadStrategy(PageLoadStrategy.NORMAL);
+
+        // Tamaño estable para headless/CI
+        options.addArguments("--window-size=1366,900");
+        options.addArguments("--disable-dev-shm-usage", "--no-sandbox");
+
+        // Reduce interferencias de FedCM / Privacy Sandbox / SameSite
+        options.addArguments("--disable-features=FedCm,PrivacySandboxAdsAPIs,ChromeRootStoreUsed,BlockInsecurePrivateNetworkRequests,SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure");
+
+        // Ruido visual y prompts
+        options.addArguments("--disable-notifications", "--disable-infobars");
+
         if (headless) {
-            options.addArguments("--headless=new");
+            // Headless moderno + estabilidad en Windows
+            options.addArguments("--headless=new", "--disable-gpu", "--disable-software-rasterizer");
         }
-        options.addArguments("--window-size=1366,900", "--disable-dev-shm-usage", "--no-sandbox");
+
         driver = new ChromeDriver(options);
-        wait = new WebDriverWait(driver, Duration.ofSeconds(25));
+        wait = new WebDriverWait(driver, Duration.ofSeconds(35)); // un poco más generoso para CI/headless
     }
 
     @AfterEach
@@ -76,12 +88,9 @@ public abstract class BaseTest {
         driver.navigate().to(abs(path));
     }
 
-    protected WebElement el(By by) {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(by));
-    }
-
     /* ==== NUEVO: usado por todos los Smoke ==== */
     protected void assertUrlContains(String fragment) {
-        wait.until(ExpectedConditions.urlContains(fragment));
+        new WebDriverWait(driver, Duration.ofSeconds(20))
+                .until(d -> d.getCurrentUrl().contains(fragment));
     }
 }

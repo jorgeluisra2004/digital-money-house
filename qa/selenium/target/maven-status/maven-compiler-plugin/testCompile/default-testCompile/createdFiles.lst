@@ -4,6 +4,7 @@ com\dmh\selenium\smoke\SmokePerfilTest.class
 com\dmh\selenium\pages\LoginPage.class
 com\dmh\selenium\pages\TarjetasPage.class
 com\dmh\selenium\smoke\SmokeActividadTest.class
+com\dmh\selenium\support\ScreenshotOnFailure.class
 com\dmh\selenium\smoke\SmokeTarjetasTest.class
 com\dmh\selenium\BaseTest.class
 com\dmh\selenium\pages\HomePage.class
