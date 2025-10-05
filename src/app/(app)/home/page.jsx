@@ -165,6 +165,7 @@ export default function HomePage() {
             />
           </svg>
           <input
+            data-testid="home-search-input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -229,6 +230,7 @@ export default function HomePage() {
         {/* CTA: Ver toda la actividad */}
         <div className="px-5 py-4 flex items-center justify-between">
           <button
+            data-testid="home-cta-actividad"
             onClick={goActividad}
             className="inline-flex items-center gap-2 rounded-md px-4 py-2 font-semibold"
             style={{ backgroundColor: "var(--dmh-lime)", color: "#111" }}

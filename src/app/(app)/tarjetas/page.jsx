@@ -1,36 +1,49 @@
+// /src/app/tarjetas/page.jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 
+/* ---------------- utils ---------------- */
+const MAX_CARDS = 10;
+
 function detectBrand(raw) {
   const n = (raw || "").replace(/\D/g, "");
-  if (/^4\d{12,18}$/.test(n)) return "visa";
+  const iin4 = Number(n.slice(0, 4) || 0);
+  const iin2 = n.slice(0, 2);
+
+  if (n.startsWith("4")) return "visa";
   if (
-    /^(5[1-5]\d{14}|2(2[2-9]\d{2}|[3-6]\d{3}|7[01]\d{2}|720\d{2})\d{10})$/.test(
-      n
-    )
+    (iin4 >= 2221 && iin4 <= 2720) ||
+    (Number(iin2) >= 51 && Number(iin2) <= 55)
   )
     return "mastercard";
+  if (iin2 === "34" || iin2 === "37") return "amex";
   return "desconocida";
 }
+
 function formatNumber(raw) {
   const n = (raw || "").replace(/\D/g, "").slice(0, 19);
   return n.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
 }
+
 function formatExpiry(raw) {
   const n = (raw || "").replace(/\D/g, "").slice(0, 4);
   return n.length <= 2 ? n : `${n.slice(0, 2)}/${n.slice(2)}`;
 }
+
 const last4 = (raw) => (raw || "").replace(/\D/g, "").slice(-4);
 
+/* ---------------- preview ---------------- */
 function CardPreview({ number, name, expiry }) {
   const brand = detectBrand(number);
   const THEMES = {
     visa: { bg1: "#0a1a2b", bg2: "#143a61", accent: "#1a73e8" },
     mastercard: { bg1: "#1e1413", bg2: "#3a1b17", accent: "#ff5f00" },
+    amex: { bg1: "#0f2230", bg2: "#1f4e63", accent: "#00bcd4" },
     desconocida: { bg1: "#151515", bg2: "#242424", accent: "#c9ff2a" },
   };
   const theme = THEMES[brand] || THEMES.desconocida;
@@ -75,7 +88,13 @@ function CardPreview({ number, name, expiry }) {
       <div className="relative p-5 h-full flex flex-col justify-between">
         <div className="flex justify-end">
           <div className="w-12 h-8 rounded-md bg-white/20 grid place-items-center text-[10px] tracking-widest">
-            {brand === "visa" ? "VISA" : brand === "mastercard" ? "MC" : ""}
+            {brand === "visa"
+              ? "VISA"
+              : brand === "mastercard"
+              ? "MC"
+              : brand === "amex"
+              ? "AMEX"
+              : ""}
           </div>
         </div>
         <div className="space-y-2">
@@ -100,9 +119,14 @@ function CardPreview({ number, name, expiry }) {
   );
 }
 
+/* ---------------- page ---------------- */
 export default function TarjetasPage() {
   const supabase = getSupabaseClient();
   const { session } = useAuth();
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [mode, setMode] = useState("list");
   const [cards, setCards] = useState([]);
@@ -115,7 +139,16 @@ export default function TarjetasPage() {
   const [saving, setSaving] = useState(false);
 
   const brand = useMemo(() => detectBrand(num), [num]);
+  const brandName =
+    brand === "visa"
+      ? "Visa"
+      : brand === "mastercard"
+      ? "Mastercard"
+      : brand === "amex"
+      ? "AMEX"
+      : "Desconocida";
 
+  // cargar listado
   useEffect(() => {
     const fetchCards = async () => {
       if (!session?.user?.id) return;
@@ -133,31 +166,61 @@ export default function TarjetasPage() {
     fetchCards();
   }, [session?.user?.id, supabase]);
 
+  // leer modo desde la URL (?alta=1)
+  useEffect(() => {
+    setMode(searchParams.get("alta") ? "form" : "list");
+  }, [searchParams]);
+
+  const goToForm = () => {
+    if (cards.length >= MAX_CARDS) {
+      alert(`Llegaste al máximo de ${MAX_CARDS} tarjetas.`);
+      return;
+    }
+    router.replace(`${pathname}?alta=1`);
+  };
+
+  const backToList = () => {
+    router.replace(pathname);
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     if (!session?.user?.id) return;
+    if (cards.length >= MAX_CARDS) {
+      alert(`Llegaste al máximo de ${MAX_CARDS} tarjetas.`);
+      return;
+    }
+
     const raw = (num || "").replace(/\D/g, "");
     const expPretty = formatExpiry(exp);
 
-    if (!/^\d{16,19}$/.test(raw)) return alert("Número de tarjeta inválido");
+    // validaciones mínimas
+    const isVisa = brand === "visa";
+    const isMC = brand === "mastercard";
+    const isAmex = brand === "amex";
+
+    const lenOk =
+      (isVisa && raw.length >= 13 && raw.length <= 19) ||
+      (isMC && raw.length === 16) ||
+      (isAmex && raw.length === 15);
+
+    if (!lenOk) return alert("Número de tarjeta inválido");
     if (!/^\d{2}\/\d{2}$/.test(expPretty))
       return alert("Fecha inválida (MM/YY)");
-    if (!name.trim()) return alert("Nombre requerido");
-    if (!/^\d{3,4}$/.test((cvv || "").trim())) return alert("CVV inválido");
+    if (!name.trim()) return alert("Nombre del titular requerido");
+    const maxCVV = isAmex ? 4 : 3;
+    if (!new RegExp(`^\\d{${maxCVV}}$`).test((cvv || "").trim()))
+      return alert(`CVV inválido (${maxCVV} dígitos)`);
 
     setSaving(true);
     try {
       const mask = "**** **** **** " + last4(raw);
-      const brandStr =
-        brand === "visa"
-          ? "VISA"
-          : brand === "mastercard"
-          ? "MASTERCARD"
-          : "DESCONOCIDO";
+      const brandStr = brandName.toUpperCase();
+
       const { error } = await supabase.from("medios_pago").insert([
         {
           usuario_id: session.user.id,
-          tipo: brandStr.toLowerCase(),
+          tipo: brandName.toLowerCase(), // visa | mastercard | amex
           numero_mascarado: mask,
           banco: brandStr,
           fecha_vencimiento: expPretty,
@@ -165,10 +228,13 @@ export default function TarjetasPage() {
       ]);
       if (error) throw error;
 
+      // reset
       setNum("");
       setExp("");
       setName("");
       setCvv("");
+
+      // refresh lista
       const { data } = await supabase
         .from("medios_pago")
         .select(
@@ -177,7 +243,8 @@ export default function TarjetasPage() {
         .eq("usuario_id", session.user.id)
         .order("created_at", { ascending: false });
       setCards(data || []);
-      setMode("list");
+
+      backToList();
     } catch (err) {
       console.error(err);
       alert("No se pudo guardar la tarjeta.");
@@ -194,11 +261,17 @@ export default function TarjetasPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
-      {/* SOLO contenido — el sidebar es global y fijo */}
       {mode === "form" ? (
         <div className="bg-white/80 rounded-xl p-8 shadow border border-black/10">
           <div className="mb-8 grid place-items-center">
             <CardPreview number={num} name={name} expiry={formatExpiry(exp)} />
+            <div
+              data-testid="tarjetas-brand-detect"
+              className="mt-3 text-sm text-gray-600"
+            >
+              Tipo detectado (por los primeros 4 dígitos):{" "}
+              <span className="font-semibold">{brandName}</span>
+            </div>
           </div>
 
           <form
@@ -210,33 +283,39 @@ export default function TarjetasPage() {
               onChange={(e) => setNum(e.target.value)}
               placeholder="Número de la tarjeta*"
               className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
+              inputMode="numeric"
             />
             <input
               value={formatExpiry(exp)}
               onChange={(e) => setExp(e.target.value)}
-              placeholder="Fecha de vencimiento*"
+              placeholder="Fecha de vencimiento (MM/YY)*"
               className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
+              inputMode="numeric"
             />
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Nombre y apellido*"
-              className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
+              placeholder="Nombre y apellido del titular*"
+              className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3 md:col-span-2"
             />
             <input
               value={cvv}
-              onChange={(e) =>
-                setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))
-              }
-              placeholder="Código de seguridad*"
-              className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3"
+              onChange={(e) => {
+                const max = detectBrand(num) === "amex" ? 4 : 3;
+                setCvv(e.target.value.replace(/\D/g, "").slice(0, max));
+              }}
+              placeholder={`Código de seguridad (${
+                detectBrand(num) === "amex" ? "4 dígitos" : "3 dígitos"
+              })*`}
+              className="bg-white text-[#111] placeholder:text-gray-500 border border-[#d8f3d1] focus:border-[var(--dmh-lime)] outline-none rounded-lg px-4 py-3 w-40"
+              inputMode="numeric"
             />
 
             <div className="md:col-span-2 flex justify-center mt-2">
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full md:w-auto min-w-[280px] h-12 rounded-lg font-semibold hover:brightness-95 transition"
+                className="w-full md:w-auto min-w-[280px] h-12 rounded-lg font-semibold hover:brightness-95 transition disabled:opacity-60"
                 style={{ backgroundColor: "var(--dmh-lime)", color: "#111" }}
               >
                 {saving ? "Guardando…" : "Continuar"}
@@ -245,7 +324,7 @@ export default function TarjetasPage() {
             <div className="md:col-span-2 flex justify-center">
               <button
                 type="button"
-                onClick={() => setMode("list")}
+                onClick={backToList}
                 className="text-sm text-gray-600 underline mt-1"
               >
                 Volver al listado
@@ -255,6 +334,7 @@ export default function TarjetasPage() {
         </div>
       ) : (
         <div className="space-y-6">
+          {/* Banner + CTA Alta */}
           <div
             className="rounded-xl p-6 flex items-center justify-between text-white"
             style={{ background: "#1f1f1f" }}
@@ -263,8 +343,15 @@ export default function TarjetasPage() {
               Agregá tu tarjeta de débito o crédito
             </div>
             <button
-              onClick={() => setMode("form")}
-              className="flex items-center gap-3 bg-[#2a2a2a] hover:bg-[#333] rounded-xl px-5 py-3 transition"
+              data-testid="btn-alta-tarjeta"
+              onClick={goToForm}
+              disabled={cards.length >= MAX_CARDS}
+              className="flex items-center gap-3 bg-[#2a2a2a] hover:bg-[#333] disabled:opacity-50 rounded-xl px-5 py-3 transition"
+              title={
+                cards.length >= MAX_CARDS
+                  ? `Máximo ${MAX_CARDS} tarjetas`
+                  : "Alta de tarjeta"
+              }
             >
               <span
                 className="w-7 h-7 rounded-full grid place-items-center text-black"
@@ -273,7 +360,7 @@ export default function TarjetasPage() {
                 +
               </span>
               <span className="text-[var(--dmh-lime)] font-semibold">
-                Nueva tarjeta
+                Alta de tarjeta
               </span>
               <svg width="22" height="22" viewBox="0 0 24 24" className="ml-2">
                 <path
@@ -288,18 +375,35 @@ export default function TarjetasPage() {
             </button>
           </div>
 
+          {cards.length >= MAX_CARDS && (
+            <div
+              data-testid="tarjetas-limit-banner"
+              className="rounded-lg border border-yellow-300 bg-yellow-50 text-yellow-900 px-4 py-3"
+            >
+              Llegaste al límite de {MAX_CARDS} tarjetas. Eliminá alguna para
+              poder agregar otra.
+            </div>
+          )}
+
+          {/* Listado */}
           <div className="bg-white rounded-xl shadow border border-black/10">
-            <div className="px-6 py-4 font-semibold">Tus tarjetas</div>
+            <div className="px-6 py-4 font-semibold text-black">
+              Tus tarjetas
+            </div>
             {loadingList ? (
               <div className="px-6 py-10 text-gray-500">Cargando…</div>
             ) : cards.length === 0 ? (
               <div className="px-6 py-10 text-gray-500">
-                Aún no agregaste tarjetas.
+                No tienes tarjetas asociadas
               </div>
             ) : (
               <ul>
                 {cards.map((c, idx) => {
                   const terminada = (c?.numero_mascarado || "").slice(-4);
+                  const tipo = (c?.tipo || "").toString();
+                  const tipoCap = tipo
+                    ? tipo.charAt(0).toUpperCase() + tipo.slice(1)
+                    : "";
                   return (
                     <li key={c.id}>
                       <div className="px-6 py-4 flex items-center justify-between">
@@ -309,11 +413,12 @@ export default function TarjetasPage() {
                             style={{ background: "var(--dmh-lime)" }}
                           />
                           <div className="text-gray-800">
-                            Terminada en {terminada}
-                            {c?.banco ? (
+                            {tipoCap ? `${tipoCap} • ` : ""}Terminada en{" "}
+                            {terminada}
+                            {c?.fecha_vencimiento ? (
                               <span className="text-gray-500">
                                 {" "}
-                                • {c.banco}
+                                • Vence {c.fecha_vencimiento}
                               </span>
                             ) : null}
                           </div>

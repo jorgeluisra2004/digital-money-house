@@ -225,6 +225,7 @@ export default function ActividadPage() {
               />
             </svg>
             <input
+              data-testid="actividad-search-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && pushFiltersToURL()}
@@ -328,7 +329,8 @@ export default function ActividadPage() {
             No hay movimientos
           </div>
         ) : (
-          <ul className="divide-y divide-gray-200">
+          <ul className="divide-y divide-gray-200" data-testid="actividad-list">
+            {" "}
             {pageItems.map((m) => {
               const negativo = Number(m.monto) < 0;
               return (
@@ -484,12 +486,14 @@ export default function ActividadPage() {
             {/* footer de acciones */}
             <div className="px-5 py-4 border-t flex gap-2">
               <button
+                data-testid="filters-clear"
                 className="flex-1 rounded-lg px-4 py-2 border text-gray-800"
                 onClick={clearFilters}
               >
                 Borrar filtros
               </button>
               <button
+                data-testid="filters-apply"
                 className="flex-1 rounded-lg px-4 py-2 font-semibold"
                 style={{ background: "var(--dmh-lime)", color: "#0f0f0f" }}
                 onClick={() => {

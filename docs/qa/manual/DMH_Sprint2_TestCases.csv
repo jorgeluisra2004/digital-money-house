@@ -1,0 +1,14 @@
+ID,Épica,Módulo,Prioridad,Tipo,Precondiciones,Paso,Resultado Esperado
+TC-001,Dashboard,Navbar,Alta,Smoke,Usuario logueado en cualquier vista,"Click en 'Hola, <Nombre>' del navbar",Redirige a /home
+TC-002,Home,Actividad,Alta,Smoke,Usuario con >10 movimientos,"Abrir /home",Se listan como máximo 10 movimientos ordenados por fecha DESC
+TC-003,Home->Actividad,Buscador,Alta,Smoke,Usuario logueado,"Escribir 'luz' en el buscador de /home y presionar Enter",Navega a /actividad?q=luz
+TC-004,Actividad,Filtros,Media,Regression,"Estar en /actividad","Abrir filtros, seleccionar 'Último mes' y 'Egresos', clic en Aplicar",URL incluye ?period=ultimo_mes&op=egresos y la lista se filtra
+TC-005,Actividad,Filtros,Media,Regression,"Estar en /actividad con filtros","Clic en 'Borrar filtros'",URL sin parámetros y lista completa
+TC-006,Perfil,Datos personales,Media,Regression,Estar en /perfil,"Editar nombre y apellido y Guardar",Se persiste y se ve el nuevo nombre
+TC-007,Perfil,Password,Media,Regression,Estar en /perfil,"Click en lápiz de Contraseña",Navega a /cambiar-password y la contraseña se muestra como '******'
+TC-008,Perfil,Alias,Alta,Smoke,Estar en /perfil,"Editar alias a 'uno.dos.tres' y Guardar",Se guarda y respeta patrón X.X.X (3 palabras)
+TC-009,Perfil,Alias,Alta,Regression,Estar en /perfil,"Clic en copiar CVU y copiar Alias",Aparece toast "CVU copiado"/"Alias copiado"
+TC-010,Tarjetas,Alta,Alta,Smoke,Estar en /tarjetas,"Click en 'Alta de tarjeta'",Se muestra formulario y preview; se detecta tipo por primeros dígitos
+TC-011,Tarjetas,Alta,Alta,Smoke,Formulario abierto,"Ingresar 4111111111111111, 12/30, Nombre, 123 y Continuar",Se guarda una Visa y aparece en el listado "Terminada en 1111"
+TC-012,Tarjetas,Límite,Media,Regression,Usuario con 10 tarjetas,"Abrir /tarjetas",Se muestra banner de límite y el CTA Alta está deshabilitado
+TC-013,Sesión,Logout,Media,Regression,Usuario logueado,"Click en 'Cerrar sesión' del sidebar",Redirige a "/" y se destruye la sesión

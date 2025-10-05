@@ -1,3 +1,4 @@
+// /src/app/perfil/page.jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -69,14 +70,14 @@ function ReadRow({ label, children, editable = false, onEdit }) {
   );
 }
 
-/* ----- Editores inline por tipo de dato ----- */
+/* ----- Acciones de editor inline ----- */
 function InlineActions({ onSave, onCancel, saving }) {
   return (
     <div className="flex items-center gap-2">
       <button
         onClick={onSave}
         disabled={saving}
-        className="px-3 py-1.5 rounded-md text-sm font-semibold"
+        className="px-3 py-1.5 rounded-md text-sm font-semibold disabled:opacity-60"
         style={{ background: LIME, color: "#0f0f0f" }}
       >
         {saving ? "Guardando…" : "Guardar"}
@@ -100,7 +101,7 @@ export default function PerfilPage() {
   const [loading, setLoading] = useState(true);
 
   // edición por-fila
-  const [editing, setEditing] = useState(null); // 'nombre', 'cuit', 'telefono'
+  const [editing, setEditing] = useState(null); // 'nombre' | 'cuit' | 'telefono'
   const [saving, setSaving] = useState(false);
   const [errorFila, setErrorFila] = useState("");
 
@@ -150,6 +151,8 @@ export default function PerfilPage() {
           if (insErr) throw insErr;
           acc = created;
         }
+
+        // generar CVU/alias si faltan
         const missing =
           !acc?.cvu ||
           acc.cvu.trim() === "" ||
@@ -190,6 +193,7 @@ export default function PerfilPage() {
     [usuario?.nombre, usuario?.apellido]
   );
 
+  /* copiar al portapapeles con mini toast */
   const copy = async (txt, key) => {
     try {
       await navigator.clipboard.writeText(txt || "");
@@ -199,7 +203,13 @@ export default function PerfilPage() {
   };
 
   const telValido = (t) => !t || /^[0-9+\-()\s]{6,20}$/.test(t);
-  const aliasValido = (a) => /^[a-z0-9.]{3,32}$/.test(a || "");
+
+  // ✅ Alias: exactamente 3 palabras (letras/números) separadas por puntos => x.x.x
+  const alias3Words = (a) => /^[a-z0-9]+(\.[a-z0-9]+){2}$/.test(a || "");
+  const aliasValido = (a) => {
+    const s = (a || "").toLowerCase();
+    return s.length >= 3 && s.length <= 32 && alias3Words(s);
+  };
 
   const saveField = async (field) => {
     setErrorFila("");
@@ -242,7 +252,7 @@ export default function PerfilPage() {
         setUsuario(data);
       }
       setEditing(null);
-    } catch (e) {
+    } catch {
       setErrorFila("No se pudieron guardar los cambios.");
     } finally {
       setSaving(false);
@@ -252,9 +262,10 @@ export default function PerfilPage() {
   const onSaveAlias = async () => {
     setErrorAlias("");
     const next = (aliasInput || "").trim().toLowerCase();
+
     if (!aliasValido(next)) {
       setErrorAlias(
-        "Alias inválido. Solo minúsculas, números y puntos (3–32)."
+        "Alias inválido. Debe tener 3 palabras (letras o números) separadas por puntos, ej.: micuenta.personal.banco"
       );
       return;
     }
@@ -293,7 +304,7 @@ export default function PerfilPage() {
     <div className="bg-[#efefef]">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
         <section className="space-y-6">
-          {/* ===== Card: Tus datos (modo lectura con lápiz por fila) ===== */}
+          {/* ===== Card: Tus datos ===== */}
           <div className="bg-white rounded-xl border border-black/10 shadow-sm overflow-hidden">
             <div className="text-xl px-6 py-4 font-bold text-gray-900">
               Tus datos
@@ -301,7 +312,7 @@ export default function PerfilPage() {
 
             {/* Lista de filas */}
             <ul className="divide-y divide-gray-200">
-              {/* Email - solo lectura, sin lápiz */}
+              {/* Email - solo lectura */}
               <ReadRow label="Email">{usuario?.email || "—"}</ReadRow>
 
               {/* Nombre y apellido */}
@@ -424,13 +435,13 @@ export default function PerfilPage() {
                 </ReadRow>
               )}
 
-              {/* Contraseña => navegar a página de cambio */}
+              {/* Contraseña => navegación a cambio de clave */}
               <ReadRow
                 label="Contraseña"
                 editable
                 onEdit={() => (window.location.href = "/cambiar-password")}
               >
-                ******
+                ****** {/* Invisible por requerimiento */}
               </ReadRow>
             </ul>
           </div>
@@ -449,10 +460,10 @@ export default function PerfilPage() {
             </div>
           </Link>
 
-          {/* CVU / Alias (bloque oscuro, como tenías) */}
+          {/* CVU / Alias */}
           <div className="bg-[#1f1f1f] text-white rounded-xl border border-black/10 shadow-sm">
             <div className="px-6 pt-5 pb-2 text-sm text-white/80 font-semibold">
-              Copiá tu cvu o alias para ingresar o transferir dinero desde otra
+              Copiá tu CVU o alias para ingresar o transferir dinero desde otra
               cuenta
             </div>
 
@@ -470,6 +481,7 @@ export default function PerfilPage() {
                 </div>
               </div>
               <button
+                data-testid="perfil-copy-cvu"
                 onClick={() => copy(cuenta?.cvu, "cvu")}
                 className="shrink-0 mt-1 hover:brightness-110"
                 style={{ color: LIME }}
@@ -497,13 +509,15 @@ export default function PerfilPage() {
                   </div>
                 ) : (
                   <input
+                    data-testid="perfil-alias-input"
                     className="mt-1 w-full max-w-md rounded-md border border-white/20 bg-black/30 text-white placeholder-white/50 px-3 py-2 outline-none focus:border-[var(--dmh-lime)]"
                     value={aliasInput}
                     onChange={(e) =>
                       setAliasInput(e.target.value.toLowerCase())
                     }
-                    placeholder="tuc.alias.aqui"
+                    placeholder="mi.alias.cuenta"
                     style={{ WebkitTextFillColor: "#fff" }}
+                    onKeyDown={(e) => e.key === "Enter" && onSaveAlias()}
                   />
                 )}
               </div>
@@ -511,6 +525,7 @@ export default function PerfilPage() {
               {!editAlias ? (
                 <div className="flex items-center gap-2">
                   <button
+                    data-testid="perfil-copy-alias"
                     onClick={() => copy(cuenta?.alias, "alias")}
                     className="shrink-0 mt-1 hover:brightness-110"
                     style={{ color: LIME }}
@@ -534,7 +549,7 @@ export default function PerfilPage() {
                   <button
                     onClick={onSaveAlias}
                     disabled={savingAlias}
-                    className="px-3 py-1.5 rounded-md text-sm font-semibold"
+                    className="px-3 py-1.5 rounded-md text-sm font-semibold disabled:opacity-60"
                     style={{ background: LIME, color: "#0f0f0f" }}
                   >
                     {savingAlias ? "Guardando…" : "Guardar"}

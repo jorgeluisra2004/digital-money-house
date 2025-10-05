@@ -58,6 +58,7 @@ export default function Navbar() {
             // 🔹 NOMBRE + INICIALES → Link a /home
             <Link
               href="/home"
+              data-testid="navbar-user-greeting"
               aria-label="Ir al Dashboard"
               title="Ir al Dashboard"
               className="group flex items-center rounded-xl pl-2 pr-3 py-1 transition-colors"
@@ -153,6 +154,7 @@ export default function Navbar() {
             {/* 🔹 NOMBRE EN HEADER DEL DRAWER → Link a /home */}
             <Link
               href="/home"
+              data-testid="navbar-user-greeting"
               onClick={() => setOpen(false)}
               aria-label="Ir al Dashboard"
               title="Ir al Dashboard"
