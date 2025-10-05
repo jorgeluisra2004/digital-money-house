@@ -1,0 +1,11 @@
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\BaseTest.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\pages\ActividadPage.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\pages\HomePage.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\pages\LoginPage.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\pages\Navbar.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\pages\PerfilPage.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\pages\TarjetasPage.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\smoke\SmokeActividadTest.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\smoke\SmokeNavigationTest.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\smoke\SmokePerfilTest.java
+D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\src\test\java\com\dmh\selenium\smoke\SmokeTarjetasTest.java

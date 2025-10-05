@@ -1,51 +1,70 @@
 package com.dmh.selenium.pages;
 
-import com.dmh.selenium.BaseTest;
+import java.time.Duration;
+
 import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
-public class ActividadPage extends BaseTest {
-  private final By list = By.cssSelector("[data-testid='actividad-list']");
-  private final By search = By.cssSelector("[data-testid='actividad-search-input']");
-  private final By btnFilter = By.xpath("//button[normalize-space()='Filtrar']");
-  private final By btnApply = By.cssSelector("[data-testid='filters-apply']");
-  private final By btnClear = By.cssSelector("[data-testid='filters-clear']");
-  private By periodBtn(String key) { // ej: ultimo_mes
-    return By.cssSelector("button[aria-pressed='true'], button");
+public class ActividadPage {
+  private final WebDriver driver;
+  private final WebDriverWait wait;
+  private final String baseUrl;
+
+  private final By search = By.cssSelector("input[placeholder*='Buscar']");
+  private final By openFilters = By.xpath("//button[normalize-space()='Filtrar']");
+  private final By applyFilters = By.xpath("//button[normalize-space()='Aplicar']");
+  private final By clearFilters = By.xpath("//button[normalize-space()='Borrar filtros']");
+
+  private static String resolveBaseUrl() {
+    String prop = System.getProperty("BASE_URL");
+    String env = System.getenv("BASE_URL");
+    String url = (prop != null && !prop.isBlank()) ? prop
+            : (env != null && !env.isBlank()) ? env
+            : "http://localhost:3000";
+    return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
   }
 
-  public void assertLoaded() { el(list); }
-
-  public void openFilters() { click(btnFilter); }
-
-  public void choosePeriodo(String key) {
-    // usamos el texto visible que está en PERIODS
-    click(By.xpath("//section[.//p[contains(text(),'Período')]]//button[.='"+ labelFor(key) +"']"));
+  public ActividadPage(WebDriver driver) {
+    this.driver = driver;
+    this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+    this.baseUrl = resolveBaseUrl();
   }
 
-  public void chooseOperacion(String v) {
-    click(By.xpath("//section[.//p[contains(text(),'Operación')]]//button[.='"+ textOp(v) +"']"));
+  private String abs(String p){ return p.startsWith("http") ? p : baseUrl + (p.startsWith("/")?p:"/"+p); }
+
+  public void open() {
+    driver.navigate().to(abs("/actividad"));
+    wait.until(ExpectedConditions.visibilityOfElementLocated(search));
   }
 
-  public void applyFilters() { click(btnApply); }
-
-  public void clearFilters() { click(btnClear); }
-
-  private String labelFor(String key) {
-    return switch (key) {
-      case "hoy" -> "Hoy";
-      case "ayer" -> "Ayer";
-      case "ultima_semana" -> "Última semana";
-      case "ultimos_15" -> "Últimos 15 días";
-      case "ultimo_mes" -> "Último mes";
-      case "ultimos_3_meses" -> "Últimos 3 meses";
-      default -> "Todos";
-    };
+  /* Nombres que esperan los smoke tests */
+  public void assertLoaded() {
+    wait.until(ExpectedConditions.visibilityOfElementLocated(search));
   }
-  private String textOp(String v){
-    return switch (v) {
-      case "ingresos" -> "Ingresos";
-      case "egresos" -> "Egresos";
-      default -> "Todas";
-    };
+
+  public void openFilters() {
+    wait.until(ExpectedConditions.elementToBeClickable(openFilters)).click();
+  }
+
+  public void choosePeriodo(String label) {
+    By btn = By.xpath("//section[.//p[contains(.,'Período')]]//button[normalize-space()='"+label+"']");
+    wait.until(ExpectedConditions.elementToBeClickable(btn)).click();
+  }
+
+  public void chooseOperacion(String label) {
+    By btn = By.xpath("//section[.//p[contains(.,'Operación')]]//button[normalize-space()='"+label+"']");
+    wait.until(ExpectedConditions.elementToBeClickable(btn)).click();
+  }
+
+  public void applyFilters() {
+    wait.until(ExpectedConditions.elementToBeClickable(applyFilters)).click();
+  }
+
+  public void clearAll() {
+    if (!driver.findElements(clearFilters).isEmpty()) {
+      driver.findElement(clearFilters).click();
+    }
   }
 }

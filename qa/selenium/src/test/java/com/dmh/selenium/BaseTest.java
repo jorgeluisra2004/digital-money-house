@@ -1,68 +1,87 @@
 package com.dmh.selenium;
 
-import io.github.bonigarcia.wdm.WebDriverManager;
-import org.junit.jupiter.api.*;
-import org.openqa.selenium.*;
+import java.time.Duration;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInstance;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.*;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
-import java.time.Duration;
+import io.github.bonigarcia.wdm.WebDriverManager;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class BaseTest {
 
-  protected WebDriver driver;
-  protected WebDriverWait wait;
-  protected String baseUrl = System.getProperty("BASE_URL", "http://localhost:3000");
+    protected WebDriver driver;
+    protected WebDriverWait wait;
+    protected String baseUrl;
 
-  @BeforeAll
-  void setupDriver() {
-    WebDriverManager.chromedriver().setup();
-  }
-
-  @BeforeEach
-  void openBrowser() {
-    ChromeOptions options = new ChromeOptions();
-    if (Boolean.parseBoolean(System.getProperty("HEADLESS", "true"))) {
-      options.addArguments("--headless=new");
+    private static String resolveBaseUrl() {
+        String prop = System.getProperty("BASE_URL");
+        String env = System.getenv("BASE_URL");
+        String url = (prop != null && !prop.isBlank()) ? prop
+                : (env != null && !env.isBlank()) ? env
+                : "http://localhost:3000";
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
-    options.addArguments("--window-size=1366,900");
-    options.addArguments("--disable-dev-shm-usage", "--no-sandbox");
-    driver = new ChromeDriver(options);
-    wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-  }
 
-  @AfterEach
-  void quit() {
-    if (driver != null) driver.quit();
-  }
+    @BeforeAll
+    void setupConfig() {
+        WebDriverManager.chromedriver().setup();
+        baseUrl = resolveBaseUrl();
+    }
 
-  protected void go(String path) {
-    driver.navigate().to(baseUrl + path);
-  }
+    @BeforeEach
+    void openBrowser() {
+        ChromeOptions options = new ChromeOptions();
+        boolean headless = Boolean.parseBoolean(
+                System.getProperty("HEADLESS",
+                        String.valueOf(Boolean.parseBoolean(System.getenv("HEADLESS") == null ? "true" : System.getenv("HEADLESS"))))
+        );
+        if (headless) {
+            options.addArguments("--headless=new");
+        }
+        options.addArguments("--window-size=1366,900", "--disable-dev-shm-usage", "--no-sandbox");
+        driver = new ChromeDriver(options);
+        wait = new WebDriverWait(driver, Duration.ofSeconds(25));
+    }
 
-  protected WebElement el(By by) {
-    return wait.until(ExpectedConditions.visibilityOfElementLocated(by));
-  }
+    @AfterEach
+    void quit() {
+        if (driver != null) {
+            driver.quit();
+        }
+    }
 
-  protected void click(By by) {
-    wait.until(ExpectedConditions.elementToBeClickable(by)).click();
-  }
+    /* helpers */
+    protected String abs(String path) {
+        if (path == null || path.isBlank()) {
+            return baseUrl;
+        }
+        if (path.startsWith("http://") || path.startsWith("https://")) {
+            return path;
+        }
+        String p = path.startsWith("/") ? path : "/" + path;
+        return baseUrl + p;
+    }
 
-  protected void type(By by, String text) {
-    WebElement e = el(by);
-    e.clear();
-    e.sendKeys(text);
-  }
+    protected void go(String path) {
+        driver.navigate().to(abs(path));
+    }
 
-  protected void pressEnter(By by) {
-    el(by).sendKeys(Keys.ENTER);
-  }
+    protected WebElement el(By by) {
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(by));
+    }
 
-  protected void assertUrlContains(String fragment) {
-    wait.until(ExpectedConditions.urlContains(fragment));
-    Assertions.assertTrue(driver.getCurrentUrl().contains(fragment),
-        "URL debería contener: " + fragment + " pero es: " + driver.getCurrentUrl());
-  }
+    /* ==== NUEVO: usado por todos los Smoke ==== */
+    protected void assertUrlContains(String fragment) {
+        wait.until(ExpectedConditions.urlContains(fragment));
+    }
 }

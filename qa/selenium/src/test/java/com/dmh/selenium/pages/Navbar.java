@@ -1,12 +1,18 @@
 package com.dmh.selenium.pages;
 
-import com.dmh.selenium.BaseTest;
 import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
 
-public class Navbar extends BaseTest {
-  private final By greeting = By.cssSelector("[data-testid='navbar-user-greeting']");
+public class Navbar {
 
-  public void clickGreeting() {
-    click(greeting);
-  }
+    private final WebDriver driver;
+    private final By greeting = By.cssSelector("[data-testid='navbar-user-greeting']");
+
+    public Navbar(WebDriver driver) {
+        this.driver = driver;
+    }
+
+    public void clickGreeting() {
+        driver.findElement(greeting).click();
+    }
 }

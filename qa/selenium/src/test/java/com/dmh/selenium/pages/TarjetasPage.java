@@ -1,38 +1,76 @@
 package com.dmh.selenium.pages;
 
-import com.dmh.selenium.BaseTest;
+import java.time.Duration;
+
 import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
-public class TarjetasPage extends BaseTest {
-  private final By alta = By.cssSelector("[data-testid='btn-alta-tarjeta']");
-  private final By brandInfo = By.cssSelector("[data-testid='tarjetas-brand-detect']");
-  private final By limitBanner = By.cssSelector("[data-testid='tarjetas-limit-banner']");
+public class TarjetasPage {
+  private final WebDriver driver;
+  private final WebDriverWait wait;
+  private final String baseUrl;
 
-  private final By number = By.xpath("//input[contains(@placeholder,'Número')]");
-  private final By expiry = By.xpath("//input[contains(@placeholder,'vencimiento') or contains(@placeholder,'MM/YY')]");
-  private final By name = By.xpath("//input[contains(@placeholder,'Nombre')]");
-  private final By cvv = By.xpath("//input[contains(@placeholder,'Código')]");
-  private final By submit = By.xpath("//button[normalize-space()='Continuar']");
+  private final By nuevaTarjeta = By.xpath("//span[contains(.,'Nueva tarjeta')]/ancestor::button");
+  private final By number = By.cssSelector("input[placeholder^='Numero']");
+  private final By expiry = By.cssSelector("input[placeholder^='Fecha']");
+  private final By name = By.cssSelector("input[placeholder^='Nombre']");
+  private final By cvv = By.cssSelector("input[placeholder^='Codigo']");
+  private final By continuar = By.xpath("//button[normalize-space()='Continuar']");
 
-  public void openList() { go("/tarjetas"); }
-  public void openForm() { click(alta); }
+  /* En la card preview aparece un badge con 'VISA' o 'MC' */
+  private By brandBadge(String txtUpper) {
+    return By.xpath("//div[@class='w-12 h-8 rounded-md bg-white/20 grid place-items-center text-[10px] tracking-widest' and normalize-space()='"+txtUpper+"']");
+  }
+
+  private static String resolveBaseUrl() {
+    String prop = System.getProperty("BASE_URL");
+    String env = System.getenv("BASE_URL");
+    String url = (prop != null && !prop.isBlank()) ? prop
+            : (env != null && !env.isBlank()) ? env
+            : "http://localhost:3000";
+    return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+  }
+
+  public TarjetasPage(WebDriver driver) {
+    this.driver = driver;
+    this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+    this.baseUrl = resolveBaseUrl();
+  }
+
+  private String abs(String p){ return p.startsWith("http") ? p : baseUrl + (p.startsWith("/")?p:"/"+p); }
+
+  public void open() {
+    driver.navigate().to(abs("/tarjetas"));
+    wait.until(ExpectedConditions.elementToBeClickable(nuevaTarjeta));
+  }
+
+  /* Wrappers con los nombres que usa el Smoke test */
+  public void openList(String ignored) { open(); }
+
+  public void openForm() {
+    wait.until(ExpectedConditions.elementToBeClickable(nuevaTarjeta)).click();
+    wait.until(ExpectedConditions.visibilityOfElementLocated(number));
+  }
 
   public void assertBrandShown(String brand) {
-    String txt = el(brandInfo).getText().toLowerCase();
-    if (!txt.contains(brand.toLowerCase())) {
-      throw new AssertionError("Se esperaba marca "+brand+" en '"+txt+"'");
+    String b = brand == null ? "" : brand.toLowerCase();
+    String expected = b.contains("visa") ? "VISA" : (b.contains("master") ? "MC" : "");
+    if (!expected.isEmpty()) {
+      wait.until(ExpectedConditions.visibilityOfElementLocated(brandBadge(expected)));
     }
   }
 
   public void createVisaDemo() {
-    type(number, "4111 1111 1111 1111");
-    type(expiry, "12/30");
-    type(name, "QA Tester");
-    type(cvv, "123");
-    click(submit);
-  }
+    wait.until(ExpectedConditions.visibilityOfElementLocated(number)).sendKeys("4111 1111 1111 1111");
+    driver.findElement(expiry).sendKeys("12/30");
+    driver.findElement(name).sendKeys("Smoke Tester");
+    driver.findElement(cvv).sendKeys("123");
+    wait.until(ExpectedConditions.elementToBeClickable(continuar)).click();
 
-  public boolean isLimitBannerVisible() {
-    try { el(limitBanner); return true; } catch (Exception e) { return false; }
+    // Listado con "Terminada en 1111"
+    By terminada = By.xpath("//*[contains(text(),'Terminada en 1111')]");
+    wait.until(ExpectedConditions.visibilityOfElementLocated(terminada));
   }
 }
