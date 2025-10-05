@@ -26,7 +26,6 @@ export default function DashboardSidebar() {
     return pathname === clean || pathname.startsWith(`${clean}/`);
   };
 
-  // src/components/DashboardSidebar.jsx (sólo el handler)
   const handleLogout = async () => {
     try {
       await logout();
@@ -46,6 +45,17 @@ export default function DashboardSidebar() {
       }}
     >
       <nav className="px-6 py-6">
+        {/* 🔹 Nombre clicable que lleva al Dashboard */}
+        <div className="mb-6">
+          <Link
+            href="/home"
+            className="block text-[20px] font-semibold text-[#0f0f0f] hover:underline hover:text-black transition-colors"
+          >
+            Digital Money House
+          </Link>
+        </div>
+
+        {/* 🔹 Navegación */}
         <ul className="space-y-3">
           {NAV.map((item) => {
             const active = isActive(item.href);

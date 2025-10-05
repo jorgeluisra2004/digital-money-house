@@ -10,7 +10,7 @@ export default function Hero() {
     () => ({
       title: "De ahora en\nadelante, hacés\nmás con tu dinero",
       subtitle: "Tu nueva billetera virtual",
-      bg: "/landing-bg.jpg",
+      bg: "/landing-bg.webp",
       card1_title: "Transferí dinero",
       card1_body:
         "Desde Digital Money House vas a poder transferir dinero a otras cuentas, así como también recibir transferencias y nuclear tu capital en nuestra billetera virtual",

@@ -1,3 +1,4 @@
+// /src/components/Navbar.jsx
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -28,10 +29,8 @@ export default function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // Cierra el drawer al navegar
   useEffect(() => setOpen(false), [pathname]);
 
-  // ✅ Considera logueado solo si hay un identificador real
   const isLogged = Boolean(user?.id || user?.email);
 
   const DARK = "var(--dmh-dark, #232326)";
@@ -56,23 +55,25 @@ export default function Navbar() {
         {/* Derecha desktop */}
         <div className="hidden md:flex items-center">
           {isLogged ? (
-            <div
-              className="flex items-center rounded-xl pl-2 pr-3 py-1"
+            // 🔹 NOMBRE + INICIALES → Link a /home
+            <Link
+              href="/home"
+              aria-label="Ir al Dashboard"
+              title="Ir al Dashboard"
+              className="group flex items-center rounded-xl pl-2 pr-3 py-1 transition-colors"
               style={{ backgroundColor: "#2b2b2c" }}
             >
               <div
                 className="grid h-8 w-10 place-items-center rounded-lg text-sm font-extrabold tracking-wide"
                 style={{ backgroundColor: LIME, color: "#111" }}
-                title={fullName || undefined}
               >
                 {initials}
               </div>
-              <span className="ml-3 text-[15px] font-semibold text-white">
+              <span className="ml-3 text-[15px] font-semibold text-white group-hover:underline">
                 Hola, {fullName || "Usuario"}
               </span>
-            </div>
+            </Link>
           ) : (
-            // 👇️ mostramos CTAs incluso si loading === true (no ocultamos el header)
             <div className="flex items-center gap-3">
               <Link
                 href="/login"
@@ -95,13 +96,16 @@ export default function Navbar() {
         {/* Derecha móvil */}
         <div className="flex items-center gap-2 md:hidden">
           {isLogged ? (
-            <div
+            // 🔹 INICIALES → Link a /home
+            <Link
+              href="/home"
+              aria-label="Ir al Dashboard"
+              title="Ir al Dashboard"
               className="grid h-8 w-10 place-items-center rounded-lg text-sm font-extrabold"
               style={{ backgroundColor: LIME, color: "#111" }}
-              title={fullName || undefined}
             >
               {initials}
-            </div>
+            </Link>
           ) : null}
           <button
             aria-label="Abrir menú"
@@ -146,12 +150,20 @@ export default function Navbar() {
             className="flex items-center justify-between px-5 py-4"
             style={{ backgroundColor: DARK }}
           >
-            <div className="text-white">
+            {/* 🔹 NOMBRE EN HEADER DEL DRAWER → Link a /home */}
+            <Link
+              href="/home"
+              onClick={() => setOpen(false)}
+              aria-label="Ir al Dashboard"
+              title="Ir al Dashboard"
+              className="text-white"
+            >
               <div className="text-sm opacity-80">Hola,</div>
-              <div className="text-[15px] font-semibold">
+              <div className="text-[15px] font-semibold underline-offset-2 hover:underline">
                 {fullName || "Usuario"}
               </div>
-            </div>
+            </Link>
+
             <button
               aria-label="Cerrar"
               onClick={() => setOpen(false)}
@@ -168,6 +180,7 @@ export default function Navbar() {
               </svg>
             </button>
           </div>
+
           <nav className="px-5 py-3">
             <ul className="space-y-1">
               {NAV.map((item) => {

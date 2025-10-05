@@ -1,7 +1,8 @@
+// /src/app/actividad/page.jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 
@@ -78,6 +79,10 @@ export default function ActividadPage() {
   const supabase = getSupabaseClient();
   const { session, loading: authLoading } = useAuth();
 
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [movs, setMovs] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -113,6 +118,18 @@ export default function ActividadPage() {
     };
     load();
   }, [authLoading, session?.user?.id, supabase]);
+
+  // leer filtros desde la URL (?q, ?op, ?period)
+  useEffect(() => {
+    const qParam = (searchParams.get("q") || "").trim();
+    const opParam = (searchParams.get("op") || "").toLowerCase();
+    const periodParam = (searchParams.get("period") || "").toLowerCase();
+
+    setQuery(qParam);
+    setOp(opParam === "ingresos" || opParam === "egresos" ? opParam : "");
+    setPeriod(PERIODS.some((p) => p.key === periodParam) ? periodParam : "");
+    setPage(1);
+  }, [searchParams]);
 
   // filtrar + ordenar
   const filtered = useMemo(() => {
@@ -156,11 +173,21 @@ export default function ActividadPage() {
 
   const anyFilter = Boolean(period || op || query);
 
+  const pushFiltersToURL = () => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (op) params.set("op", op);
+    if (period) params.set("period", period);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  };
+
   const clearFilters = () => {
     setQuery("");
     setPeriod("");
     setOp("");
     setPage(1);
+    router.replace(pathname); // limpia la URL
   };
 
   /* --- accesibilidad/UX modal: lock scroll + ESC --- */
@@ -200,12 +227,17 @@ export default function ActividadPage() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full py-2 outline-none placeholder:text-gray-400"
+              onKeyDown={(e) => e.key === "Enter" && pushFiltersToURL()}
+              className="w-full py-2 outline-none text-black placeholder:text-gray-400"
               placeholder="Buscar en tu actividad"
             />
             {query && (
               <button
-                onClick={() => setQuery("")}
+                onClick={() => {
+                  setQuery("");
+                  // reflejar cambio en URL
+                  setTimeout(() => pushFiltersToURL(), 0);
+                }}
                 className="text-xs text-gray-600 hover:underline"
                 title="Limpiar búsqueda"
               >
@@ -366,17 +398,9 @@ export default function ActividadPage() {
         )}
       </div>
 
-      {/* atajo a actividad completa */}
-      <div className="mt-4 sm:mt-5 text-right">
-        <Link
-          href="/actividad"
-          className="text-sm font-semibold text-gray-800 hover:underline"
-        >
-          Ver toda tu actividad
-        </Link>
-      </div>
+      {/* ❌ Sin CTA redundante aquí (ya estamos en /actividad) */}
 
-      {/* -------- Modal de filtros (centrado, sobre el footer) -------- */}
+      {/* -------- Modal de filtros -------- */}
       {filtersOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center">
           <div
@@ -468,7 +492,10 @@ export default function ActividadPage() {
               <button
                 className="flex-1 rounded-lg px-4 py-2 font-semibold"
                 style={{ background: "var(--dmh-lime)", color: "#0f0f0f" }}
-                onClick={() => setFiltersOpen(false)}
+                onClick={() => {
+                  pushFiltersToURL();
+                  setFiltersOpen(false);
+                }}
               >
                 Aplicar
               </button>

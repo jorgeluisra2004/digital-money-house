@@ -1,7 +1,9 @@
+// /src/app/home/page.jsx (o donde tengas HomePage)
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
@@ -22,6 +24,7 @@ function ActionLink({ href, label }) {
 
 export default function HomePage() {
   const supabase = getSupabaseClient();
+  const router = useRouter();
   const { session, loading: authLoading } = useAuth();
 
   const [usuario, setUsuario] = useState(null);
@@ -48,7 +51,6 @@ export default function HomePage() {
     );
   }, [query, movimientos]);
 
-  // ✅ ÚNICA fuente de verdad: el saldo guardado en la DB
   const saldoMostrado = Number(cuenta?.saldo ?? 0);
 
   useEffect(() => {
@@ -68,11 +70,13 @@ export default function HomePage() {
           .eq("usuario_id", session.user.id)
           .limit(1);
 
+        // ✅ Traemos ya ordenados y LIMIT 10 (criterio del sprint)
         const { data: movs } = await supabase
           .from("movimientos")
           .select("*")
           .eq("usuario_id", session.user.id)
-          .order("fecha", { ascending: false });
+          .order("fecha", { ascending: false })
+          .limit(10);
 
         setUsuario(u ?? null);
         setCuenta(cuentas?.[0] ?? { saldo: 0, cvu: "", alias: "" });
@@ -84,6 +88,12 @@ export default function HomePage() {
     load();
   }, [authLoading, session?.user?.id, supabase]);
 
+  // 🔗 Navegación a /actividad con (o sin) filtro
+  const goActividad = () => {
+    const q = query.trim();
+    router.push(q ? `/actividad?q=${encodeURIComponent(q)}` : "/actividad");
+  };
+
   if (authLoading || loading) {
     return (
       <div className="h-[60vh] grid place-items-center text-gray-600">
@@ -94,8 +104,6 @@ export default function HomePage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
-      {/* SOLO contenido — el sidebar es global y fijo */}
-
       {/* Saldo */}
       <motion.div
         initial={{ opacity: 0, y: 14 }}
@@ -122,7 +130,7 @@ export default function HomePage() {
               Ver tarjetas
             </Link>
             <Link href="/perfil" className="hover:text-white">
-              Ver tarjetas
+              Ver CVU
             </Link>
           </div>
         </div>
@@ -159,13 +167,16 @@ export default function HomePage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full py-2 outline-none placeholder:text-gray-400"
-            placeholder="Buscar en tu actividad"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") goActividad(); // ✅ Enter → /actividad?q=...
+            }}
+            className="w-full py-2 outline-none text-black placeholder:text-gray-400"
+            placeholder="Buscar en tu actividad (Enter para ver todo con filtro)"
           />
         </div>
       </motion.div>
 
-      {/* Actividad */}
+      {/* Actividad (resumen últimos 10) */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -176,7 +187,7 @@ export default function HomePage() {
           Tu actividad
         </div>
         <ul className="divide-y divide-gray-200">
-          {filtered.slice(0, 8).map((m) => {
+          {filtered.slice(0, 10).map((m) => {
             const negativo = Number(m.monto) < 0;
             return (
               <li key={m.id} className="px-5 py-4">
@@ -198,7 +209,7 @@ export default function HomePage() {
                   </div>
                   <p
                     className={`text-[15px] font-semibold ${
-                      negativo ? "text-red-600" : "text-gray-900"
+                      negativo ? "text-red-600" : "text-emerald-600"
                     }`}
                   >
                     {negativo ? "-" : "+"}
@@ -215,15 +226,15 @@ export default function HomePage() {
           )}
         </ul>
 
+        {/* CTA: Ver toda la actividad */}
         <div className="px-5 py-4 flex items-center justify-between">
-          <Link
-            href="/actividad"
-            className="text-sm font-semibold text-gray-800 hover:underline"
+          <button
+            onClick={goActividad}
+            className="inline-flex items-center gap-2 rounded-md px-4 py-2 font-semibold"
+            style={{ backgroundColor: "var(--dmh-lime)", color: "#111" }}
           >
-            Ver toda tu actividad
-          </Link>
-          <span className="text-gray-700">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            Ver toda la actividad
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path
                 d="M9 18l6-6-6-6"
                 stroke="currentColor"
@@ -232,7 +243,15 @@ export default function HomePage() {
                 strokeLinejoin="round"
               />
             </svg>
-          </span>
+          </button>
+
+          {/* Link simple por si preferís mantenerlo también */}
+          <Link
+            href="/actividad"
+            className="text-sm font-semibold text-gray-800 hover:underline"
+          >
+            Ir a actividad
+          </Link>
         </div>
       </motion.div>
     </div>
