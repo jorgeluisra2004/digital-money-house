@@ -1,21 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.dmh.selenium.smoke.SmokePerfilTest
 -------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 27.13 s <<< FAILURE! -- in com.dmh.selenium.smoke.SmokePerfilTest
-com.dmh.selenium.smoke.SmokePerfilTest.editAliasToThreeWordsAndCopy -- Time elapsed: 27.11 s <<< ERROR!
-org.openqa.selenium.TimeoutException: 
-Expected condition failed: waiting for visibility of element located by By.cssSelector: [data-testid='perfil-alias-input'] (tried for 20 second(s) with 500 milliseconds interval)
-Build info: version: '4.23.0', revision: '4df0a231af'
-System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '17.0.16'
-Driver info: org.openqa.selenium.chrome.ChromeDriver
-Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 140.0.7339.210, chrome: {chromedriverVersion: 140.0.7339.207 (17230b545fd..., userDataDir: C:\Users\User\AppData\Local...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63440}, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63440/devtoo..., se:cdpVersion: 140.0.7339.210, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
-Session ID: 6061ad45bcaba5de4d3b58738b531ce9
-	at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:84)
-	at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:228)
-	at com.dmh.selenium.pages.PerfilPage.editAliasTo(PerfilPage.java:82)
-	at com.dmh.selenium.pages.PerfilPage.editAlias(PerfilPage.java:70)
-	at com.dmh.selenium.smoke.SmokePerfilTest.editAliasToThreeWordsAndCopy(SmokePerfilTest.java:17)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 18.00 s -- in com.dmh.selenium.smoke.SmokePerfilTest
