@@ -87,7 +87,7 @@ function CardPreview({ number, name, expiry }) {
 
       <div className="relative p-5 h-full flex flex-col justify-between">
         <div className="flex justify-end">
-          <div className="w-12 h-8 rounded-md bg-white/20 grid place-items-center text-[10px] tracking-widest">
+          <div className="w-12 h-8 rounded.md bg-white/20 grid place-items-center text-[10px] tracking-widest">
             {brand === "visa"
               ? "VISA"
               : brand === "mastercard"
@@ -260,7 +260,10 @@ export default function TarjetasPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+    <div
+      className="max-w-6xl mx-auto px-4 md:px-6 py-8"
+      data-testid="cards-list"
+    >
       {mode === "form" ? (
         <div className="bg-white/80 rounded-xl p-8 shadow border border-black/10">
           <div className="mb-8 grid place-items-center">
@@ -343,7 +346,7 @@ export default function TarjetasPage() {
               Agregá tu tarjeta de débito o crédito
             </div>
             <button
-              data-testid="btn-alta-tarjeta"
+              data-testid="cards-add"
               onClick={goToForm}
               disabled={cards.length >= MAX_CARDS}
               className="flex items-center gap-3 bg-[#2a2a2a] hover:bg-[#333] disabled:opacity-50 rounded-xl px-5 py-3 transition"

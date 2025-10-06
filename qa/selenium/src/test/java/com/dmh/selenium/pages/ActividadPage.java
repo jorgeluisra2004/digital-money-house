@@ -1,172 +1,207 @@
 package com.dmh.selenium.pages;
 
 import java.time.Duration;
+import java.util.Locale;
 
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Keys;
+import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
-/**
- * Page Object de /actividad.
- *
- * • Localizadores tolerantes (placeholders en minúsculas/acentos). • Selección
- * de filtros por texto visible y también por atributos
- * (data-value/value/aria-label), para soportar valores como "ultimo_mes" y
- * textos "Último mes". • Clicks estables: espera -> scrollIntoView -> click
- * (con fallback JS) y reintento si el panel se cerró.
- */
 public class ActividadPage {
 
     private final WebDriver driver;
     private final WebDriverWait wait;
     private final String baseUrl;
 
-    // Buscador en la pantalla de actividad
-    private final By search = By.cssSelector("input[placeholder*='buscar' i]");
-    private final By openFilters = By.xpath("//button[normalize-space()='Filtrar']");
-    private final By applyFilters = By.xpath("//button[normalize-space()='Aplicar']");
-    private final By clearFilters = By.xpath("//button[normalize-space()='Borrar filtros']");
+    // --- Locators principales ---
+    private final By LIST = By.cssSelector("[data-testid='actividad-list'], .divide-y");
+    private final By SEARCH = By.cssSelector("[data-testid='actividad-search-input']");
+    private final By BTN_APPLY = By.cssSelector("[data-testid='filters-apply']");
+    private final By BTN_CLEAR = By.cssSelector("[data-testid='filters-clear']");
 
-    /* -------------------- Infra mínima -------------------- */
-    private static String resolveBaseUrl() {
-        String prop = System.getProperty("BASE_URL");
-        String env = System.getenv("BASE_URL");
-        String url = (prop != null && !prop.isBlank()) ? prop
-                : (env != null && !env.isBlank()) ? env
-                : "http://localhost:3000";
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
-    }
+    // Periodos por data-testid (si existen)
+    private final By P_HOY = By.cssSelector("[data-testid='period-hoy']");
+    private final By P_U7 = By.cssSelector("[data-testid='period-ultimos-7']");
+    private final By P_U15 = By.cssSelector("[data-testid='period-ultimos-15']");
+    private final By P_UMES = By.cssSelector("[data-testid='period-ultimo-mes']");
+    private final By P_U3M = By.cssSelector("[data-testid='period-ultimos-3-meses']");
 
-    public ActividadPage(WebDriver driver) {
+    // ---------- Constructores ----------
+    public ActividadPage(WebDriver driver, WebDriverWait wait, String baseUrl) {
         this.driver = driver;
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-        this.baseUrl = resolveBaseUrl();
+        this.wait = wait;
+        this.baseUrl = baseUrl != null ? baseUrl : "";
     }
 
-    private String abs(String p) {
-        return p.startsWith("http") ? p : baseUrl + (p.startsWith("/") ? p : "/" + p);
-    }
-
-    /* -------------------- Navegación y estado -------------------- */
-    /**
-     * Abre /actividad y espera a que el buscador esté visible.
-     */
-    public void open() {
-        driver.navigate().to(abs("/actividad"));
-        wait.until(ExpectedConditions.visibilityOfElementLocated(search));
-    }
-
-    /**
-     * Asegura que la pantalla cargó (buscador visible).
-     */
-    public void assertLoaded() {
-        wait.until(ExpectedConditions.visibilityOfElementLocated(search));
-    }
-
-    /**
-     * Abre el panel de filtros.
-     */
-    public void openFilters() {
-        wait.until(ExpectedConditions.elementToBeClickable(openFilters)).click();
-    }
-
-    /**
-     * Aplica los filtros seleccionados.
-     */
-    public void applyFilters() {
-        wait.until(ExpectedConditions.elementToBeClickable(applyFilters)).click();
-    }
-
-    /**
-     * Limpia todos los filtros si el botón existe.
-     */
-    public void clearAll() {
-        if (!driver.findElements(clearFilters).isEmpty()) {
-            driver.findElement(clearFilters).click();
-        }
-    }
-
-    /* -------------------- Selección de opciones -------------------- */
-    /**
-     * Construye un localizador para un botón dentro de una sección de filtros.
-     * La búsqueda es insensible a acentos y mayúsculas en el título de la
-     * sección. Coincide tanto por atributos (data-value/value/aria-label) como
-     * por texto visible.
-     *
-     * @param sectionTitleNoAccent Título de sección normalizado (PERIODO /
-     * OPERACION)
-     * @param rawLabel Label tal como lo recibe el test (p.ej. "ultimo_mes" o
-     * "Último mes")
-     */
-    private By optionInSection(String sectionTitleNoAccent, String rawLabel) {
-        String label = rawLabel == null ? "" : rawLabel.trim();
-
-        // Normalizamos acentos en XPath: translate(., 'ÁÉÍÓÚáéíóú', 'AEIOUaeiou')
-        String sect = "translate(.,'ÁÉÍÓÚáéíóú','AEIOUaeiou')";
-        String txt = "translate(normalize-space(.),'ÁÉÍÓÚáéíóú','AEIOUaeiou')";
-
-        // También normalizamos en Java para comparación de texto visible
-        String want = label
-                .replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
-                .replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u");
-
-        // Sección por título (PERIODO / OPERACION) sin acentos
-        String section = String.format("//section[.//p[contains(%s,'%s')]]", sect, sectionTitleNoAccent);
-
-        // Botón por atributos o por texto visible (con y sin acentos)
-        String button = String.format(
-                "//button["
-                + "@data-value='%s' or @value='%s' or @aria-label='%s' "
-                + // por atributos
-                "or %s='%s' or normalize-space(.)='%s'"
-                + // por texto visible (normalizado y crudo)
-                "]",
-                label, label, label,
-                txt, want, label
+    // Sobrecarga: solo WebDriver (como usan tus tests)
+    public ActividadPage(WebDriver driver) {
+        this(
+                driver,
+                new WebDriverWait(driver, Duration.ofSeconds(20)),
+                resolveBaseUrl()
         );
-
-        return By.xpath(section + button);
     }
 
-    /**
-     * Selecciona un período (acepta "ultimo_mes" o "Último mes").
-     */
-    public void choosePeriodo(String label) {
-        By btn = optionInSection("PERIODO", label);
-        clickWithRetry(btn);
+    private static String resolveBaseUrl() {
+        String s = System.getProperty("baseUrl");
+        if (s == null || s.isBlank()) {
+            s = System.getProperty("BASE_URL");
+        }
+        if (s == null || s.isBlank()) {
+            s = System.getenv("BASE_URL");
+        }
+        if (s == null || s.isBlank()) {
+            s = "http://localhost:3000";
+        }
+        return s;
     }
 
-    /**
-     * Selecciona una operación (p.ej. "egresos").
-     */
-    public void chooseOperacion(String label) {
-        By btn = optionInSection("OPERACION", label);
-        clickWithRetry(btn);
+    // Para wait.until(ActividadPage.assertLoaded())
+    public static ExpectedCondition<WebElement> assertLoaded() {
+        return drv -> {
+            WebElement el = drv.findElement(By.cssSelector("[data-testid='actividad-list'], .divide-y"));
+            return el.isDisplayed() ? el : null;
+        };
     }
 
-    /* -------------------- Utilidades de click estables -------------------- */
-    private void clickWithRetry(By locator) {
+    // Para usar encadenado en instancia
+    public ActividadPage assertLoadedInstance() {
+        wait.until(assertLoaded());
+        return this;
+    }
+
+    public ActividadPage open() {
+        driver.get(baseUrl + "/actividad");
+        wait.until(assertLoaded());
+        return this;
+    }
+
+    public ActividadPage openFilters() {
+        // Hay más de un botón “Filtrar”; elegir el visible
+        By FILTRAR = By.xpath("//button[normalize-space()='Filtrar' or contains(.,'Filtrar')]");
+        waitUntilClickable(FILTRAR).click();
+        wait.until(ExpectedConditions.visibilityOfElementLocated(BTN_APPLY));
+        return this;
+    }
+
+    public ActividadPage choosePeriodo(String key) {
+        if (key == null) {
+            return this;
+        }
+        String k = key.trim().toLowerCase(Locale.ROOT);
+
+        // 1) intento por testid
+        By target = null;
+        switch (k) {
+            case "hoy":
+                target = P_HOY;
+                break;
+            case "ultima_semana":
+            case "última_semana":
+            case "ultimos_7":
+            case "últimos_7":
+                target = P_U7;
+                break;
+            case "ultimos_15":
+            case "últimos_15":
+                target = P_U15;
+                break;
+            case "ultimo_mes":
+            case "último_mes":
+                target = P_UMES;
+                break;
+            case "ultimos_3_meses":
+            case "últimos_3_meses":
+                target = P_U3M;
+                break;
+            default:
+                // "" (todos) => no seleccionar nada
+                return this;
+        }
+
         try {
-            WebElement el = wait.until(ExpectedConditions.elementToBeClickable(locator));
-            scrollAndClick(el);
-        } catch (TimeoutException e) {
-            // Si el panel se cerró, lo reabrimos y reintentamos una vez.
-            openFilters();
-            WebElement el = wait.until(ExpectedConditions.elementToBeClickable(locator));
-            scrollAndClick(el);
+            waitUntilClickable(target).click();
+            return this;
+        } catch (NoSuchElementException | TimeoutException ignore) {
+            // 2) fallback por texto visible en el modal “Período”
+            String label = mapPeriodoLabel(k);
+            if (label != null) {
+                By BTN = By.xpath("//section[.//p[contains(.,'Período')]]//button[normalize-space()='" + label + "']");
+                waitUntilClickable(BTN).click();
+            }
+            return this;
         }
     }
 
-    private void scrollAndClick(WebElement el) {
-        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", el);
-        try {
-            el.click();
-        } catch (Exception ex) {
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+    public ActividadPage chooseOperacion(String operacion) {
+        String op = (operacion == null ? "" : operacion).trim().toLowerCase(Locale.ROOT);
+        String label = "Todas";
+        if ("ingresos".equals(op)) {
+            label = "Ingresos";
+        }
+        if ("egresos".equals(op)) {
+            label = "Egresos";
+        }
+
+        By BTN = By.xpath("//section[.//p[contains(.,'Operación')]]//button[normalize-space()='" + label + "']");
+        waitUntilClickable(BTN).click();
+        return this;
+    }
+
+    public ActividadPage applyFilters() {
+        waitUntilClickable(BTN_APPLY).click();
+        wait.until(ExpectedConditions.visibilityOfElementLocated(LIST));
+        return this;
+    }
+
+    public ActividadPage clearFilters() {
+        waitUntilClickable(BTN_CLEAR).click();
+        wait.until(ExpectedConditions.visibilityOfElementLocated(LIST));
+        return this;
+    }
+
+    public ActividadPage search(String text) {
+        WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(SEARCH));
+        el.clear();
+        el.sendKeys(text);
+        el.sendKeys(Keys.ENTER);
+        return this;
+    }
+
+    // --- Helpers ---
+    private WebElement waitUntilClickable(By locator) {
+        return new WebDriverWait(driver, Duration.ofSeconds(20))
+                .until(ExpectedConditions.elementToBeClickable(locator));
+    }
+
+    private String mapPeriodoLabel(String key) {
+        switch (key) {
+            case "hoy":
+                return "Hoy";
+            case "ayer":
+                return "Ayer";
+            case "ultima_semana":
+            case "última_semana":
+            case "ultimos_7":
+            case "últimos_7":
+                return "Última semana";
+            case "ultimos_15":
+            case "últimos_15":
+                return "Últimos 15 días";
+            case "ultimo_mes":
+            case "último_mes":
+                return "Último mes";
+            case "ultimos_3_meses":
+            case "últimos_3_meses":
+                return "Últimos 3 meses";
+            default:
+                return null;
         }
     }
 }

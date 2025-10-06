@@ -400,8 +400,6 @@ export default function ActividadPage() {
         )}
       </div>
 
-      {/* ❌ Sin CTA redundante aquí (ya estamos en /actividad) */}
-
       {/* -------- Modal de filtros -------- */}
       {filtersOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center">
@@ -430,14 +428,29 @@ export default function ActividadPage() {
             {/* contenido scrolleable */}
             <div className="p-5 overflow-auto max-h-[calc(85svh-56px-64px)] space-y-8">
               {/* Período */}
-              <section>
+              <section data-testid="filters-periodo">
                 <p className="text-sm font-semibold mb-3">Período</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {PERIODS.map((p) => {
                     const active = period === p.key;
+                    // testids alineados a PageObject (fallback):
+                    const testId =
+                      p.key === "hoy"
+                        ? "period-hoy"
+                        : p.key === "ultima_semana"
+                        ? "period-ultimos-7"
+                        : p.key === "ultimos_15"
+                        ? "period-ultimos-15"
+                        : p.key === "ultimo_mes"
+                        ? "period-ultimo-mes"
+                        : p.key === "ultimos_3_meses"
+                        ? "period-ultimos-3-meses"
+                        : undefined;
+
                     return (
                       <button
                         key={p.key || "todos"}
+                        data-testid={testId}
                         onClick={() => setPeriod(p.key)}
                         className={`px-3.5 py-2 rounded-lg border text-sm transition
                           ${

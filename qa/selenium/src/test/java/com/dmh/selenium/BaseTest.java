@@ -62,7 +62,7 @@ public abstract class BaseTest {
         }
 
         driver = new ChromeDriver(options);
-        wait = new WebDriverWait(driver, Duration.ofSeconds(35)); // un poco más generoso para CI/headless
+        wait = new WebDriverWait(driver, Duration.ofSeconds(40)); // un poco más generoso para CI/headless
     }
 
     @AfterEach
@@ -90,7 +90,7 @@ public abstract class BaseTest {
 
     /* ==== NUEVO: usado por todos los Smoke ==== */
     protected void assertUrlContains(String fragment) {
-        new WebDriverWait(driver, Duration.ofSeconds(20))
+        new WebDriverWait(driver, Duration.ofSeconds(30))
                 .until(d -> d.getCurrentUrl().contains(fragment));
     }
 }

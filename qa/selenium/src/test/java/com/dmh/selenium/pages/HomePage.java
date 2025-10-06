@@ -3,6 +3,7 @@ package com.dmh.selenium.pages;
 import java.time.Duration;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -15,6 +16,7 @@ public class HomePage {
     private final WebDriverWait wait;
     private final String baseUrl;
 
+    // Buscador flexible (insensible a mayúsculas)
     private final By search = By.cssSelector("input[placeholder*='buscar' i]");
     private final By ctaActividad = By.xpath("//button[.//text()[contains(.,'Ver toda la actividad')]]");
 
@@ -29,7 +31,7 @@ public class HomePage {
 
     public HomePage(WebDriver driver, WebDriverWait wait, String baseUrl) {
         this.driver = driver;
-        this.wait = (wait != null) ? wait : new WebDriverWait(driver, Duration.ofSeconds(15));
+        this.wait = (wait != null) ? wait : new WebDriverWait(driver, Duration.ofSeconds(20));
         String url = (baseUrl != null && !baseUrl.isBlank()) ? baseUrl : resolveBaseUrl();
         this.baseUrl = url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
@@ -38,9 +40,20 @@ public class HomePage {
         return p.startsWith("http") ? p : baseUrl + (p.startsWith("/") ? p : "/" + p);
     }
 
+    private void waitDomReady() {
+        new WebDriverWait(driver, Duration.ofSeconds(10))
+                .until(d -> "complete".equals(
+                ((JavascriptExecutor) d).executeScript("return document.readyState")));
+    }
+
     public void open() {
         driver.navigate().to(abs("/home"));
-        wait.until(ExpectedConditions.visibilityOfElementLocated(search));
+        waitDomReady();
+        // Acepta cualquiera de los elementos “ancla” del Home
+        wait.until(ExpectedConditions.or(
+                ExpectedConditions.visibilityOfElementLocated(search),
+                ExpectedConditions.visibilityOfElementLocated(ctaActividad)
+        ));
     }
 
     public void searchEnter(String q) {

@@ -84,7 +84,7 @@ function InlineActions({ onSave, onCancel, saving }) {
       </button>
       <button
         onClick={onCancel}
-        className="px-3 py-1.5 rounded-md text-sm font-semibold border border-black/10 hover:bg-black/[.03]"
+        className="px-3 py-1.5 rounded-md text-sm font-semibold border border-black/10 hover:bg.black/[.03]"
       >
         Cancelar
       </button>
@@ -330,7 +330,7 @@ export default function PerfilPage() {
                         placeholder="Nombre"
                       />
                       <input
-                        className="rounded-md border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 px-3 py-2 outline-none focus:border-[var(--dmh-lime)]"
+                        className="rounded-md border border-gray-300 bg.white text-gray-900 placeholder:text-gray-400 px-3 py-2 outline-none focus:border-[var(--dmh-lime)]"
                         value={apellido}
                         onChange={(e) => setApellido(e.target.value)}
                         placeholder="Apellido"
@@ -452,7 +452,7 @@ export default function PerfilPage() {
             className="block rounded-xl"
             style={{ background: LIME }}
           >
-            <div className="px-6 py-5 md:py-6 flex items-center justify-between">
+            <div className="px-6 py-5 md:py-6 flex items.center justify-between">
               <span className="font-semibold text-[#0f0f0f] text-lg">
                 Gestioná los medios de pago
               </span>
@@ -495,7 +495,10 @@ export default function PerfilPage() {
             <div className="border-t border-white/10" />
 
             {/* Alias */}
-            <div className="px-6 py-4 flex items-start justify-between gap-4">
+            <div
+              className="px-6 py-4 flex items-start justify-between gap-4"
+              data-testid="profile-alias"
+            >
               <div>
                 <div
                   className="text-[15px] font-semibold"
@@ -504,12 +507,15 @@ export default function PerfilPage() {
                   Alias
                 </div>
                 {!editAlias ? (
-                  <div className="text-white/90 text-sm mt-1 break-all">
+                  <div
+                    data-testid="profile-alias-label"
+                    className="text-white/90 text-sm mt-1 break-all"
+                  >
                     {cuenta?.alias || "—"}
                   </div>
                 ) : (
                   <input
-                    data-testid="perfil-alias-input"
+                    data-testid="profile-alias-input"
                     className="mt-1 w-full max-w-md rounded-md border border-white/20 bg-black/30 text-white placeholder-white/50 px-3 py-2 outline-none focus:border-[var(--dmh-lime)]"
                     value={aliasInput}
                     onChange={(e) =>
@@ -535,6 +541,7 @@ export default function PerfilPage() {
                     <span className="sr-only">Copiar alias</span>
                   </button>
                   <button
+                    data-testid="profile-alias-edit"
                     onClick={() => {
                       setEditAlias(true);
                       setErrorAlias("");
@@ -547,6 +554,7 @@ export default function PerfilPage() {
               ) : (
                 <div className="flex items-center gap-2">
                   <button
+                    data-testid="profile-alias-save"
                     onClick={onSaveAlias}
                     disabled={savingAlias}
                     className="px-3 py-1.5 rounded-md text-sm font-semibold disabled:opacity-60"
@@ -578,7 +586,7 @@ export default function PerfilPage() {
           <div className="h-0">
             <span
               className={cls(
-                "fixed right-4 bottom-16 rounded-md px-3 py-2 text-sm bg-black/80 text-white transition-opacity",
+                "fixed right-4 bottom-16 rounded-md px-3 py-2 text-sm bg-black/80 text.white transition-opacity",
                 copied.cvu || copied.alias ? "opacity-100" : "opacity-0"
               )}
             >

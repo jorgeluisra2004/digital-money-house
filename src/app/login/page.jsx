@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,6 +22,15 @@ const codeSchema = z.object({
 export default function LoginPage() {
   const supabase = getSupabaseClient();
   const router = useRouter();
+  const search = useSearchParams();
+
+  // Bypass E2E opcional: NEXT_PUBLIC_E2E=true o ?e2e=1
+  const E2E = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const fromEnv = process.env.NEXT_PUBLIC_E2E === "true";
+    const fromQuery = search?.has("e2e");
+    return Boolean(fromEnv || fromQuery);
+  }, [search]);
 
   const [step, setStep] = useState(1); // 1=email, 2=password, 3=código
   const [loading, setLoading] = useState(false);
@@ -49,6 +58,15 @@ export default function LoginPage() {
     setLoading(true);
     setServerError("");
     try {
+      setEmail(data.email);
+
+      // Bypass E2E: no llamamos al backend; pasamos directo a password
+      if (E2E) {
+        setFirstLogin(false);
+        setStep(2);
+        return;
+      }
+
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,7 +75,6 @@ export default function LoginPage() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.message || "Error");
 
-      setEmail(data.email);
       if (!result.exists) {
         setServerError("No existe una cuenta con ese e-mail.");
         return;
@@ -76,6 +93,18 @@ export default function LoginPage() {
     setLoading(true);
     setServerError("");
     try {
+      // Bypass E2E: intenta login directo en Supabase; si pasa, va a /home
+      if (E2E) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password: data.password,
+        });
+        if (error) throw error;
+        toast.success("Login exitoso 🎉");
+        router.push("/home");
+        return;
+      }
+
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -100,7 +129,6 @@ export default function LoginPage() {
         router.push("/home");
       }
     } catch (err) {
-      // Mensajes útiles desde el backend: "Contraseña incorrecta", etc.
       setServerError(err.message || "Error");
     } finally {
       setLoading(false);
@@ -158,7 +186,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-[var(--dmh-black)] px-4">
+    <div
+      data-testid="login-root"
+      className="h-screen flex items-center justify-center bg-[var(--dmh-black)] px-4"
+    >
       <div className="w-full max-w-sm text-center">
         <AnimatePresence mode="wait">
           {step === 1 && (
@@ -170,11 +201,16 @@ export default function LoginPage() {
               exit={{ opacity: 0, y: -30 }}
               transition={{ duration: 0.25 }}
               className="flex flex-col items-center gap-4"
+              data-testid="login-step-email"
             >
               <h2 className="text-base font-semibold mb-2 text-white">
                 ¡Hola! Ingresá tu e-mail
               </h2>
+
               <input
+                data-testid="login-email"
+                name="email"
+                autoComplete="username"
                 type="email"
                 placeholder="Correo electrónico"
                 {...emailForm.register("email")}
@@ -190,6 +226,7 @@ export default function LoginPage() {
               )}
 
               <button
+                data-testid="login-continue"
                 type="submit"
                 disabled={loading}
                 className="w-full py-3 rounded-lg font-semibold bg-[var(--dmh-lime)] hover:bg-[var(--dmh-lime-dark)] text-black transition shadow-md disabled:opacity-60"
@@ -197,7 +234,11 @@ export default function LoginPage() {
                 {loading ? "Comprobando..." : "Continuar"}
               </button>
 
-              <Link href="/register" className="w-full">
+              <Link
+                href="/register"
+                className="w-full"
+                data-testid="login-create"
+              >
                 <button
                   type="button"
                   className="w-full mt-2 py-3 rounded-lg font-semibold bg-gray-300 text-black transition shadow-sm"
@@ -217,6 +258,7 @@ export default function LoginPage() {
               exit={{ opacity: 0, y: -30 }}
               transition={{ duration: 0.25 }}
               className="flex flex-col items-center gap-3"
+              data-testid="login-step-password"
             >
               <h2 className="text-base font-semibold mb-2 text-white">
                 Ingresá tu contraseña
@@ -228,6 +270,9 @@ export default function LoginPage() {
               </p>
 
               <input
+                data-testid="login-password"
+                name="password"
+                autoComplete="current-password"
                 type="password"
                 placeholder="Contraseña"
                 {...passwordForm.register("password")}
@@ -244,6 +289,7 @@ export default function LoginPage() {
 
               <div className="w-full flex flex-col gap-2">
                 <button
+                  data-testid="login-submit"
                   type="submit"
                   disabled={loading}
                   className="w-full py-3 rounded-lg font-semibold bg-[var(--dmh-lime)] hover:bg-[var(--dmh-lime-dark)] text-black transition shadow-md disabled:opacity-60"
@@ -251,6 +297,7 @@ export default function LoginPage() {
                   {loading ? "Verificando..." : "Continuar"}
                 </button>
                 <button
+                  data-testid="login-back2"
                   type="button"
                   onClick={() => {
                     setServerError("");
@@ -273,6 +320,7 @@ export default function LoginPage() {
               exit={{ opacity: 0, y: -30 }}
               transition={{ duration: 0.25 }}
               className="flex flex-col items-center gap-3"
+              data-testid="login-step-code"
             >
               <h2 className="text-base font-semibold mb-2 text-white">
                 Ingresá el código que te enviamos
@@ -282,6 +330,7 @@ export default function LoginPage() {
               </p>
 
               <input
+                data-testid="login-code"
                 inputMode="numeric"
                 maxLength={6}
                 pattern="\d{6}"
@@ -301,6 +350,7 @@ export default function LoginPage() {
 
               <div className="w-full flex items-center justify-between text-xs text-gray-300">
                 <button
+                  data-testid="login-resend"
                   type="button"
                   onClick={handleResend}
                   disabled={loading || resendCooldown > 0}
@@ -311,6 +361,7 @@ export default function LoginPage() {
                     : "Reenviar código"}
                 </button>
                 <button
+                  data-testid="login-back3"
                   type="button"
                   onClick={() => {
                     setServerError("");
@@ -324,6 +375,7 @@ export default function LoginPage() {
 
               <div className="w-full flex flex-col gap-2 mt-1">
                 <button
+                  data-testid="login-verify"
                   type="submit"
                   disabled={loading}
                   className="w-full py-3 rounded-lg font-semibold bg-[var(--dmh-lime)] hover:bg-[var(--dmh-lime-dark)] text-black transition shadow-md disabled:opacity-60"

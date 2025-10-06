@@ -7,24 +7,17 @@ variables:
 e2e_selenium:
   stage: test
   image: maven:3.9-eclipse-temurin-17
-  services:
-    - name: node:20
-      alias: web
-  variables:
-    E2E_EMAIL: $E2E_EMAIL
-    E2E_PASSWORD: $E2E_PASSWORD
   before_script:
     - apt-get update && apt-get install -y chromium ca-certificates unzip curl
-    # Levantar la app (si la construís en el mismo job)
     - curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs
     - node -v && npm -v
     - npm ci
     - npm run build
     - nohup npm start -- -p 3000 &
-    - sleep 8
+    - for i in {1..60}; do curl -fsS http://localhost:3000 && break || echo "Esperando app..."; sleep 2; done
   script:
     - cd qa/selenium
-    - mvn -q -Dtest=*Smoke* test
+    - mvn -q -Dtest='*Smoke*' test
   artifacts:
     when: always
     paths:

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.dmh</groupId>
@@ -11,11 +10,12 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <junit.jupiter.version>5.10.2</junit.jupiter.version>
+        <maven.compiler.release>17</maven.compiler.release>
         <selenium.version>4.23.0</selenium.version>
+        <junit.jupiter.version>5.10.2</junit.jupiter.version>
         <assertj.version>3.25.3</assertj.version>
+        <webdrivermanager.version>5.9.2</webdrivermanager.version>
+        <surefire.version>3.2.5</surefire.version>
     </properties>
 
     <dependencies>
@@ -30,7 +30,7 @@
         <dependency>
             <groupId>io.github.bonigarcia</groupId>
             <artifactId>webdrivermanager</artifactId>
-            <version>5.9.2</version>
+            <version>${webdrivermanager.version}</version>
         </dependency>
 
         <!-- JUnit 5 -->
@@ -49,7 +49,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- SLF4J simple: silencia el warning de "no providers" -->
+        <!-- SLF4J simple (logging básico en tests) -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
@@ -60,29 +60,35 @@
 
     <build>
         <plugins>
-            <!-- Compilador con UTF-8 -->
+            <!-- Compilación Java 17 -->
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <source>${maven.compiler.source}</source>
-                    <target>${maven.compiler.target}</target>
+                    <release>${maven.compiler.release}</release>
                     <encoding>${project.build.sourceEncoding}</encoding>
                 </configuration>
             </plugin>
 
-            <!-- JUnit & system props -->
+            <!-- Tests (JUnit 5) + ENV -> System Properties -->
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>${surefire.version}</version>
                 <configuration>
+                    <includes>
+                        <include>**/*Test.java</include>
+                    </includes>
                     <reuseForks>true</reuseForks>
                     <useSystemClassLoader>true</useSystemClassLoader>
+                    <trimStackTrace>false</trimStackTrace>
+
+                    <!-- Exponemos ENV como system properties que tu código lee -->
                     <systemPropertyVariables>
-                        <BASE_URL>${env.BASE_URL}</BASE_URL>
+                        <baseUrl>${env.BASE_URL}</baseUrl>
+                        <headless>${env.HEADLESS}</headless>
                         <E2E_EMAIL>${env.E2E_EMAIL}</E2E_EMAIL>
                         <E2E_PASSWORD>${env.E2E_PASSWORD}</E2E_PASSWORD>
-                        <HEADLESS>${env.HEADLESS}</HEADLESS>
+                        <CHROME_BIN>${env.CHROME_BIN}</CHROME_BIN>
                         <file.encoding>UTF-8</file.encoding>
                     </systemPropertyVariables>
                 </configuration>
