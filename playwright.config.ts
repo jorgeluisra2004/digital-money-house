@@ -1,32 +1,25 @@
-// playwright.config.ts
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
-
 export default defineConfig({
-  testDir: "e2e",
-  timeout: 60_000,
-  reporter: [["list"], ["html", { open: "never" }]],
-  expect: {
-    toHaveScreenshot: {
-      // Tolerancia pequeña para “idéntico”
-      maxDiffPixels: 80, // ~0.1% en 1280x800
-    },
-  },
+  testDir: "./e2e",
+  // Más holgado para el primer arranque y screenshots
+  timeout: 90_000,
+  expect: { timeout: 20_000 },
   use: {
-    baseURL,
-    timezoneId: "America/Argentina/Buenos_Aires",
-    trace: "on-first-retry",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
     viewport: { width: 1280, height: 800 },
   },
-  projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-  ],
-  // Levanta Next si no hay server corriendo
+  // Servidor estable: build + start (sin dev overlay)
   webServer: {
-    command: "npm run dev",
-    url: baseURL,
-    timeout: 120_000,
+    command:
+      "cross-env NEXT_PUBLIC_E2E=true NEXT_PUBLIC_ENV=e2e NEXT_TELEMETRY_DISABLED=1 npm run build && cross-env NEXT_PUBLIC_E2E=true NEXT_PUBLIC_ENV=e2e NEXT_TELEMETRY_DISABLED=1 npx next start -p 3000",
+    url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
+    env: {
+      NEXT_PUBLIC_E2E: "true",
+      NEXT_PUBLIC_ENV: "e2e",
+      NODE_ENV: "production",
+    },
   },
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

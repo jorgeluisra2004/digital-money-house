@@ -6,9 +6,9 @@
     "dev": "next dev -p 3000 -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "e2e": "playwright test",
-    "test:e2e": "playwright test --reporter=line",
-    "e2e:update": "playwright test --update-snapshots",
+    "test:e2e": "cross-env PLAYWRIGHT_BASE_URL=http://localhost:3000 NEXT_PUBLIC_E2E=true NEXT_PUBLIC_ENV=e2e npx playwright test",
+    "e2e:update": "cross-env PLAYWRIGHT_BASE_URL=http://localhost:3000 NEXT_PUBLIC_E2E=true NEXT_PUBLIC_ENV=e2e npx playwright test --update-snapshots",
+    "e2e": "cross-env PLAYWRIGHT_BASE_URL=http://localhost:3000 NEXT_PUBLIC_E2E=true NEXT_PUBLIC_ENV=e2e npx playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
     "test:e2e:headed": "playwright test --headed"

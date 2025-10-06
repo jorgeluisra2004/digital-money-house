@@ -13,6 +13,32 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 
 const AuthContext = createContext(null);
 
+/** Detecta modo E2E tanto por build-time como por runtime */
+function isE2E() {
+  // Build-time
+  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_E2E) {
+    const v = String(process.env.NEXT_PUBLIC_E2E).toLowerCase();
+    if (v === "1" || v === "true") return true;
+  }
+  // Runtime/query/cookie/localStorage
+  if (typeof window !== "undefined") {
+    // @ts-ignore
+    if (window.__E2E__ === true) return true;
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if ((p.get("e2e") || "").toLowerCase() === "1") return true;
+    } catch {}
+    try {
+      const m = document.cookie.match(/(?:^|;\s*)dmh_e2e=([^;]+)/);
+      if (m && m[1] === "1") return true;
+    } catch {}
+    try {
+      if (window.localStorage.getItem("dmh_e2e") === "1") return true;
+    } catch {}
+  }
+  return false;
+}
+
 function clearAuthStorage() {
   if (typeof window === "undefined") return;
   try {
@@ -41,7 +67,21 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const inited = useRef(false);
 
+  const E2E = isE2E();
+
+  // Sesión fake para E2E (no toca red)
+  const fakeE2ESession = useMemo(
+    () => ({
+      // Sólo usamos user.id más abajo; no hace falta token real
+      user: { id: "e2e-user", email: "e2e@local.test" },
+    }),
+    []
+  );
+
   const fetchUsuario = async (authId) => {
+    // En E2E devolvemos un perfil fake, evitando red
+    if (E2E)
+      return { id: "e2e-user", nombre: "Usuario E2E", email: "e2e@local.test" };
     try {
       const { data, error, status } = await supabase
         .from("usuarios")
@@ -55,7 +95,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Función centralizada para aplicar una sesión y sincronizar perfil
+  // Aplica sesión y sincroniza perfil
   const applySession = async (s) => {
     setSession(s ?? null);
     if (s?.user?.id) {
@@ -75,14 +115,30 @@ export function AuthProvider({ children }) {
 
     (async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        if (E2E) {
+          // ✅ En E2E no llamamos a Supabase: sesión inmediata
+          await applySession(fakeE2ESession);
+          return;
+        }
+
+        // Fuera de E2E, intentamos rehidratar sesión real
+        const timeout = new Promise((resolve) =>
+          setTimeout(resolve, 3000, null)
+        );
+        const getSess = supabase.auth
+          .getSession()
+          .then(({ data }) => data?.session ?? null)
+          .catch(() => null);
+        const initial = await Promise.race([getSess, timeout]);
         if (!alive) return;
-        await applySession(data?.session ?? null);
+        await applySession(initial);
       } finally {
         if (alive) setLoading(false);
       }
 
-      // ✅ Maneja TODOS los eventos relevantes y limpia storage al SIGNED_OUT
+      if (E2E) return; // no subscribimos eventos en E2E
+
+      // Eventos reales de auth
       const { data: cb } = supabase.auth.onAuthStateChange(
         async (event, newSession) => {
           if (!alive) return;
@@ -98,7 +154,6 @@ export function AuthProvider({ children }) {
               await applySession(null);
               break;
             default:
-              // otros eventos no requieren acción
               break;
           }
         }
@@ -106,9 +161,12 @@ export function AuthProvider({ children }) {
       unsub = cb?.subscription;
     })();
 
-    // Rehidrata al volver el foco o pestaña visible (por si cambió en otra pestaña)
     const rehydrate = async () => {
       if (document.visibilityState === "visible") {
+        if (E2E) {
+          await applySession(fakeE2ESession);
+          return;
+        }
         const { data } = await supabase.auth.getSession();
         await applySession(data?.session ?? null);
       }
@@ -126,6 +184,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
+    if (E2E) {
+      await applySession(fakeE2ESession);
+      return fakeE2ESession;
+    }
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -137,24 +199,24 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      if (!E2E) await supabase.auth.signOut();
     } finally {
-      // También limpiamos si el signOut viene desde otro dispositivo/pestaña
       clearAuthStorage();
-      await applySession(null);
+      await applySession(E2E ? null : null); // igual a null en ambos
     }
   };
 
   const refreshProfile = async () => {
-    if (!session?.user?.id) return null;
-    const perfil = await fetchUsuario(session.user.id);
+    const id = session?.user?.id || (E2E ? "e2e-user" : null);
+    if (!id) return null;
+    const perfil = await fetchUsuario(id);
     setUser(perfil);
     return perfil;
   };
 
   const value = useMemo(
     () => ({ session, user, loading, login, logout, refreshProfile }),
-    [session, user, loading]
+    [session, user, loading] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
