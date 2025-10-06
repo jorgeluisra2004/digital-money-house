@@ -13,14 +13,26 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 
 const AuthContext = createContext(null);
 
-/** Detecta modo E2E tanto por build-time como por runtime */
+/** Detecta modo E2E con posibilidad de desactivar por override (dmh_e2e_off) */
 function isE2E() {
-  // Build-time
+  // 0) Override explícito OFF (tiene prioridad absoluta)
+  if (typeof window !== "undefined") {
+    try {
+      const offLS = window.localStorage.getItem("dmh_e2e_off") === "1";
+      const offCookie = document.cookie
+        .split(";")
+        .some((c) => c.trim().startsWith("dmh_e2e_off=1"));
+      if (offLS || offCookie) return false;
+    } catch {}
+  }
+
+  // 1) Build-time
   if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_E2E) {
     const v = String(process.env.NEXT_PUBLIC_E2E).toLowerCase();
     if (v === "1" || v === "true") return true;
   }
-  // Runtime/query/cookie/localStorage
+
+  // 2) Runtime/query/cookie/localStorage
   if (typeof window !== "undefined") {
     // @ts-ignore
     if (window.__E2E__ === true) return true;
@@ -29,8 +41,10 @@ function isE2E() {
       if ((p.get("e2e") || "").toLowerCase() === "1") return true;
     } catch {}
     try {
-      const m = document.cookie.match(/(?:^|;\s*)dmh_e2e=([^;]+)/);
-      if (m && m[1] === "1") return true;
+      const onCookie = document.cookie
+        .split(";")
+        .some((c) => c.trim().startsWith("dmh_e2e=1"));
+      if (onCookie) return true;
     } catch {}
     try {
       if (window.localStorage.getItem("dmh_e2e") === "1") return true;
@@ -67,12 +81,9 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const inited = useRef(false);
 
-  const E2E = isE2E();
-
   // Sesión fake para E2E (no toca red)
   const fakeE2ESession = useMemo(
     () => ({
-      // Sólo usamos user.id más abajo; no hace falta token real
       user: { id: "e2e-user", email: "e2e@local.test" },
     }),
     []
@@ -80,7 +91,7 @@ export function AuthProvider({ children }) {
 
   const fetchUsuario = async (authId) => {
     // En E2E devolvemos un perfil fake, evitando red
-    if (E2E)
+    if (isE2E())
       return { id: "e2e-user", nombre: "Usuario E2E", email: "e2e@local.test" };
     try {
       const { data, error, status } = await supabase
@@ -115,28 +126,29 @@ export function AuthProvider({ children }) {
 
     (async () => {
       try {
-        if (E2E) {
+        const e2eNow = isE2E();
+        if (e2eNow) {
           // ✅ En E2E no llamamos a Supabase: sesión inmediata
           await applySession(fakeE2ESession);
-          return;
+        } else {
+          // Fuera de E2E, intentamos rehidratar sesión real con timeout
+          const timeout = new Promise((resolve) =>
+            setTimeout(resolve, 3000, null)
+          );
+          const getSess = supabase.auth
+            .getSession()
+            .then(({ data }) => data?.session ?? null)
+            .catch(() => null);
+          const initial = await Promise.race([getSess, timeout]);
+          if (!alive) return;
+          await applySession(initial);
         }
-
-        // Fuera de E2E, intentamos rehidratar sesión real
-        const timeout = new Promise((resolve) =>
-          setTimeout(resolve, 3000, null)
-        );
-        const getSess = supabase.auth
-          .getSession()
-          .then(({ data }) => data?.session ?? null)
-          .catch(() => null);
-        const initial = await Promise.race([getSess, timeout]);
-        if (!alive) return;
-        await applySession(initial);
       } finally {
         if (alive) setLoading(false);
       }
 
-      if (E2E) return; // no subscribimos eventos en E2E
+      // Si al montar está en E2E, no subscribimos eventos de supabase
+      if (isE2E()) return;
 
       // Eventos reales de auth
       const { data: cb } = supabase.auth.onAuthStateChange(
@@ -162,14 +174,14 @@ export function AuthProvider({ children }) {
     })();
 
     const rehydrate = async () => {
-      if (document.visibilityState === "visible") {
-        if (E2E) {
-          await applySession(fakeE2ESession);
-          return;
-        }
-        const { data } = await supabase.auth.getSession();
-        await applySession(data?.session ?? null);
+      if (document.visibilityState !== "visible") return;
+      if (isE2E()) {
+        // Si sigue en E2E y no está “off”, rehidrata fake
+        await applySession(fakeE2ESession);
+        return;
       }
+      const { data } = await supabase.auth.getSession();
+      await applySession(data?.session ?? null);
     };
     window.addEventListener("focus", rehydrate);
     document.addEventListener("visibilitychange", rehydrate);
@@ -184,7 +196,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    if (E2E) {
+    if (isE2E()) {
       await applySession(fakeE2ESession);
       return fakeE2ESession;
     }
@@ -199,15 +211,22 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      if (!E2E) await supabase.auth.signOut();
+      if (!isE2E()) await supabase.auth.signOut();
     } finally {
       clearAuthStorage();
-      await applySession(E2E ? null : null); // igual a null en ambos
+      // 🔒 Desactiva cualquier bandera E2E para no re-autologuear al fake user
+      try {
+        document.cookie = "dmh_e2e=; Max-Age=0; path=/";
+        document.cookie = "dmh_e2e_off=1; Max-Age=31536000; path=/"; // 1 año
+        window.localStorage.removeItem("dmh_e2e");
+        window.localStorage.setItem("dmh_e2e_off", "1");
+      } catch {}
+      await applySession(null);
     }
   };
 
   const refreshProfile = async () => {
-    const id = session?.user?.id || (E2E ? "e2e-user" : null);
+    const id = session?.user?.id || (isE2E() ? "e2e-user" : null);
     if (!id) return null;
     const perfil = await fetchUsuario(id);
     setUser(perfil);

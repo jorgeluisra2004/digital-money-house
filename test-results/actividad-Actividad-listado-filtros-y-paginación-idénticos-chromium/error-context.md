@@ -1,0 +1,60 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - link "Digital Money House – Inicio" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "DMH" [ref=e8]
+        - link "Ir al Dashboard" [ref=e10] [cursor=pointer]:
+          - /url: /home
+          - generic [ref=e11]: U
+          - generic [ref=e12]: Hola, Usuario E2E
+    - complementary "Sidebar" [ref=e13]:
+      - navigation [ref=e14]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Inicio" [ref=e17] [cursor=pointer]:
+              - /url: /home
+          - listitem [ref=e18]:
+            - link "Actividad" [ref=e19] [cursor=pointer]:
+              - /url: /actividad
+          - listitem [ref=e20]:
+            - link "Tu perfil" [ref=e21] [cursor=pointer]:
+              - /url: /perfil
+          - listitem [ref=e22]:
+            - link "Cargar dinero" [ref=e23] [cursor=pointer]:
+              - /url: /cargar-dinero
+          - listitem [ref=e24]:
+            - link "Pagar Servicios" [ref=e25] [cursor=pointer]:
+              - /url: /pagar-servicios
+          - listitem [ref=e26]:
+            - link "Tarjetas" [ref=e27] [cursor=pointer]:
+              - /url: /tarjetas
+        - button "Cerrar sesión" [ref=e29]
+    - main [ref=e30]:
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - generic [ref=e35]:
+            - img [ref=e36]
+            - textbox "Buscar en tu actividad" [active] [ref=e38]: ingresaste
+          - button "Filtrar" [ref=e40]:
+            - text: Filtrar
+            - img [ref=e41]
+        - generic [ref=e45]:
+          - generic [ref=e47]: Tu actividad
+          - list [ref=e49]:
+            - listitem [ref=e50] [cursor=pointer]:
+              - generic [ref=e51]:
+                - paragraph [ref=e55]: Ingresaste dinero
+                - generic [ref=e56]:
+                  - paragraph [ref=e57]: $ 1.265,57
+                  - paragraph [ref=e58]: sábado
+    - contentinfo [ref=e59]:
+      - paragraph [ref=e61]: © 2022 Digital Money House
+  - button "Open Next.js Dev Tools" [ref=e67] [cursor=pointer]:
+    - img [ref=e68]
+  - alert [ref=e71]
+```

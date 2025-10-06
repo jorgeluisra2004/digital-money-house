@@ -1,3 +1,4 @@
+// /src/app/actividad/page.jsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -8,20 +9,9 @@ import { useAuth } from "@/context/AuthContext";
 /* ---------- helpers ---------- */
 const LIME = "var(--dmh-lime)";
 const DARK = "var(--dmh-black)";
-
-function isE2E() {
-  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_E2E) {
-    const v = String(process.env.NEXT_PUBLIC_E2E).toLowerCase();
-    if (v === "1" || v === "true") return true;
-  }
-  if (typeof window !== "undefined") {
-    // @ts-ignore
-    if (window.__E2E__ === true) return true;
-    const p = new URLSearchParams(window.location.search);
-    if ((p.get("e2e") || "").toLowerCase() === "1") return true;
-  }
-  return false;
-}
+const IS_E2E =
+  String(process.env.NEXT_PUBLIC_E2E).toLowerCase() === "1" ||
+  String(process.env.NEXT_PUBLIC_E2E).toLowerCase() === "true";
 
 const fmtMoney = (n) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(
@@ -117,12 +107,12 @@ export default function ActividadPage() {
   const [detail, setDetail] = useState(null);
 
   const [page, setPage] = useState(1);
-  const pageSize = isE2E() ? 3 : 10; // ⬅️ en E2E generamos más páginas con menos items
+  const pageSize = 10;
 
   useEffect(() => {
     const load = async () => {
-      const userId = session?.user?.id || (isE2E() ? "e2e-user" : null);
-      if ((!isE2E() && authLoading) || !userId) return;
+      const userId = session?.user?.id || (IS_E2E ? "e2e-user" : null);
+      if (authLoading || !userId) return;
       setLoading(true);
       try {
         const { data, error } = await supabase
@@ -230,27 +220,8 @@ export default function ActividadPage() {
     };
   }, [filtersOpen]);
 
-  // ⬇️ Modo determinista para snapshots E2E
-  useEffect(() => {
-    if (!isE2E()) return;
-    const style = document.createElement("style");
-    style.setAttribute("data-e2e-actividad", "true");
-    style.textContent = `
-      [data-testid="actividad-card"]{ width:972px !important; height:516px !important; }
-      [data-testid="filter-popover"]{
-        width:360px !important; height:708px !important;
-        top:48px !important; left:50% !important; transform:translateX(-50%) !important;
-      }
-    `;
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, []);
-
   return (
-    <div
-      className="max-w-6xl mx-auto px-6 md:px-8 py-6 md:py-8"
-      data-testid="actividad-root"
-    >
+    <div className="max-w-6xl mx-auto px-6 md:px-8 py-6 md:py-8">
       <div className="relative flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
         <div className="flex-1">
           <div
@@ -321,10 +292,7 @@ export default function ActividadPage() {
         </div>
       </div>
 
-      <div
-        className="mt-5 bg-white rounded-2xl border border-black/10 shadow-[0_12px_22px_rgba(0,0,0,0.12)]"
-        data-testid="actividad-card"
-      >
+      <div className="mt-5 bg-white rounded-2xl border border-black/10 shadow-[0_12px_22px_rgba(0,0,0,0.12)]">
         <div className="px-7 pt-5 pb-3">
           <div className="text-gray-900 font-semibold">Tu actividad</div>
         </div>
@@ -375,9 +343,7 @@ export default function ActividadPage() {
           </ul>
         )}
 
-        {/** ⬇️ En E2E mostramos siempre la paginación (aunque haya 1 sola página),
-             para que el test encuentre el botón “1” y pueda chequear el color. */}
-        {(isE2E() || totalPages > 1) && (
+        {totalPages > 1 && (
           <div className="px-7 py-5 flex flex-wrap items-center gap-6 text-black">
             {Array.from({ length: totalPages }).map((_, i) => {
               const n = i + 1;
@@ -386,9 +352,12 @@ export default function ActividadPage() {
                 <button
                   key={n}
                   onClick={() => setPage(n)}
-                  className={`h-[32px] min-w-[32px] grid place-items-center rounded-[4px] text-[15px] ${
-                    active ? "bg-[#e9e9e9] font-semibold" : "hover:bg-gray-100"
-                  }`}
+                  className={`h-[32px] min-w-[32px] grid place-items-center rounded-[4px] text-[15px]
+                    ${
+                      active
+                        ? "bg-[#e9e9e9] font-semibold"
+                        : "hover:bg-gray-100"
+                    }`}
                   aria-current={active ? "page" : undefined}
                   type="button"
                 >
@@ -502,14 +471,15 @@ function FilterPopover({
   const [pos, setPos] = useState({ top: 0, left: 0, minLeft: 0 });
   useEffect(() => {
     const b = anchorRef.current?.getBoundingClientRect();
-    if (b) setPos({ top: b.bottom + 10, left: b.right - 360, minLeft: 12 });
+    if (b) {
+      setPos({ top: b.bottom + 10, left: b.right - 360, minLeft: 12 });
+    }
   }, [anchorRef]);
 
   return (
     <div className="fixed inset-0 z-[60]">
       <div className="absolute inset-0 bg-black/45" onClick={onClose} />
       <div
-        data-testid="filter-popover"
         className="absolute w-[360px] max-w-[92vw] bg-white rounded-xl shadow-2xl border border-black/10 overflow-hidden"
         style={{
           top: Math.max(pos.top, 12),
