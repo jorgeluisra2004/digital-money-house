@@ -1,5 +1,6 @@
 // /src/context/AuthContext.jsx
 "use client";
+
 import {
   createContext,
   useContext,
@@ -15,12 +16,10 @@ const AuthContext = createContext(null);
 function clearAuthStorage() {
   if (typeof window === "undefined") return;
   try {
-    // Borra cualquier token de supabase y claves propias
     const ls = window.localStorage;
-    const keys = Object.keys(ls);
-    keys.forEach((k) => {
+    for (const k of Object.keys(ls)) {
       if (
-        k.startsWith("sb-") ||
+        k.startsWith("sb-") || // claves de supabase
         k.includes("supabase.auth.token") ||
         k === "dmh-auth" ||
         k === "dmh_token" ||
@@ -29,8 +28,10 @@ function clearAuthStorage() {
       ) {
         ls.removeItem(k);
       }
-    });
-  } catch {}
+    }
+  } catch {
+    // no-op
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -54,58 +55,69 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Función centralizada para aplicar una sesión y sincronizar perfil
+  const applySession = async (s) => {
+    setSession(s ?? null);
+    if (s?.user?.id) {
+      const perfil = await fetchUsuario(s.user.id);
+      setUser(perfil);
+    } else {
+      setUser(null);
+    }
+  };
+
   useEffect(() => {
     if (inited.current) return;
     inited.current = true;
 
     let unsub;
+    let alive = true;
+
     (async () => {
       try {
         const { data } = await supabase.auth.getSession();
-        const current = data?.session ?? null;
-        setSession(current);
-        if (current?.user?.id) {
-          const perfil = await fetchUsuario(current.user.id);
-          setUser(perfil);
-        }
+        if (!alive) return;
+        await applySession(data?.session ?? null);
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
 
-      const { data: sub } = supabase.auth.onAuthStateChange(
+      // ✅ Maneja TODOS los eventos relevantes y limpia storage al SIGNED_OUT
+      const { data: cb } = supabase.auth.onAuthStateChange(
         async (event, newSession) => {
-          if (event === "SIGNED_OUT") {
-            setSession(null);
-            setUser(null);
-            return;
-          }
-          if (newSession?.user?.id) {
-            setSession((prev) =>
-              prev?.user?.id === newSession.user.id ? prev : newSession
-            );
-            const perfil = await fetchUsuario(newSession.user.id);
-            setUser(perfil);
+          if (!alive) return;
+          switch (event) {
+            case "SIGNED_IN":
+            case "TOKEN_REFRESHED":
+            case "USER_UPDATED":
+            case "INITIAL_SESSION":
+              await applySession(newSession ?? null);
+              break;
+            case "SIGNED_OUT":
+              clearAuthStorage();
+              await applySession(null);
+              break;
+            default:
+              // otros eventos no requieren acción
+              break;
           }
         }
       );
-      unsub = sub?.subscription;
+      unsub = cb?.subscription;
     })();
 
+    // Rehidrata al volver el foco o pestaña visible (por si cambió en otra pestaña)
     const rehydrate = async () => {
       if (document.visibilityState === "visible") {
         const { data } = await supabase.auth.getSession();
-        const s = data?.session ?? null;
-        if (s?.user?.id && !session?.user?.id) {
-          setSession(s);
-          const perfil = await fetchUsuario(s.user.id);
-          setUser(perfil);
-        }
+        await applySession(data?.session ?? null);
       }
     };
     window.addEventListener("focus", rehydrate);
     document.addEventListener("visibilitychange", rehydrate);
 
     return () => {
+      alive = false;
       unsub?.unsubscribe?.();
       window.removeEventListener("focus", rehydrate);
       document.removeEventListener("visibilitychange", rehydrate);
@@ -119,11 +131,7 @@ export function AuthProvider({ children }) {
       password,
     });
     if (error) throw error;
-    setSession(data?.session ?? null);
-    if (data?.session?.user?.id) {
-      const perfil = await fetchUsuario(data.session.user.id);
-      setUser(perfil);
-    }
+    await applySession(data?.session ?? null);
     return data?.session ?? null;
   };
 
@@ -131,10 +139,9 @@ export function AuthProvider({ children }) {
     try {
       await supabase.auth.signOut();
     } finally {
-      // ✅ 3) al cerrar sesión, se eliminan los tokens del localStorage
+      // También limpiamos si el signOut viene desde otro dispositivo/pestaña
       clearAuthStorage();
-      setSession(null);
-      setUser(null);
+      await applySession(null);
     }
   };
 

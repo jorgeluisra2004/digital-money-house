@@ -270,11 +270,13 @@ export default function CargarDineroPage() {
           <OptionTile
             title="Transferencia bancaria"
             onClick={() => setView(VIEW.TRANSFER)}
+            testId="btn-transfer"
           />
           <OptionTile
             title="Seleccionar tarjeta"
             onClick={() => setView(VIEW.CARD_SELECT)}
             card
+            testId="btn-card"
           />
         </div>
       )}
@@ -628,6 +630,7 @@ export default function CargarDineroPage() {
 function OptionTile({ title, onClick, card = false }) {
   return (
     <button
+      data-testid={testId}
       onClick={onClick}
       className="w-full text-left rounded-2xl px-6 py-8 shadow-md border transition"
       style={{ background: DARK, borderColor: "rgba(0,0,0,0.5)" }}
