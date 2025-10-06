@@ -1,4 +1,4 @@
-# Created at 2025-10-05T22:11:26.131
+# Created at 2025-10-06T10:35:27.583
 Boot Manifest-JAR contains absolute paths in classpath 'D:\_ArchivosUsuario\Desktop\digital-money-house\qa\selenium\target\test-classes'
 Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
 'other' has different root

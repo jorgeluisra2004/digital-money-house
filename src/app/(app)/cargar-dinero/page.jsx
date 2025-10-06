@@ -7,40 +7,51 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 
 const MAX_CARGA = 1_500_000;
+const LIME = "var(--dmh-lime)";
+const DARK = "var(--dmh-black)";
+const WHITE = "var(--white)";
 
 const fmtMoney = (n) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(
     Number(n || 0)
   );
-
-// Mostrar miles sin decimales en el input
 const fmtMiles = (n) =>
-  new Intl.NumberFormat("es-AR", {
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(Number(n || 0));
+  new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(
+    Number(n || 0)
+  );
+
+const VIEW = {
+  OPTIONS: "options",
+  TRANSFER: "transfer",
+  CARD_SELECT: "card_select",
+  CARD_AMOUNT: "card_amount",
+  CARD_REVIEW: "card_review",
+  SUCCESS: "success",
+};
 
 export default function CargarDineroPage() {
   const supabase = getSupabaseClient();
-  const { session, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { session, loading: authLoading } = useAuth();
 
   const [cuenta, setCuenta] = useState(null);
+  const [tarjetas, setTarjetas] = useState([]);
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [view, setView] = useState(VIEW.OPTIONS);
+  const [copied, setCopied] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // ---- Form ----
-  // Guardamos solo dígitos (pesos enteros). Ej: "50000"
+  // monto
   const [raw, setRaw] = useState("");
   const monto = useMemo(() => Number(raw || 0), [raw]);
 
+  // submit
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(null);
-
-  // Anti doble-submit
   const submitLock = useRef(false);
 
-  // Guard & carga de cuenta
+  // guard
   useEffect(() => {
     if (authLoading) return;
     if (!session?.user) {
@@ -49,32 +60,48 @@ export default function CargarDineroPage() {
     }
   }, [authLoading, session, router]);
 
+  // cargar cuenta + tarjetas
   useEffect(() => {
     const load = async () => {
       if (authLoading || !session?.user?.id) return;
-
       setLoading(true);
       try {
-        const { data: row, error } = await supabase
+        const { data: row } = await supabase
           .from("cuentas")
           .select("id, saldo, cvu, alias")
           .eq("usuario_id", session.user.id)
           .maybeSingle();
 
-        if (error) throw error;
-
+        let acc = row;
         if (!row) {
-          const { data: created, error: insErr } = await supabase
+          const { data: created } = await supabase
             .from("cuentas")
             .insert([
               { usuario_id: session.user.id, saldo: 0, cvu: "", alias: "" },
             ])
             .select("id, saldo, cvu, alias")
             .single();
-          if (insErr) throw insErr;
-          setCuenta(created);
+          acc = created;
+        }
+        setCuenta(acc);
+
+        const { data: cards, error: cardErr } = await supabase
+          .from("tarjetas")
+          .select("id, brand, last4")
+          .eq("usuario_id", session.user.id)
+          .order("id", { ascending: true });
+
+        if (!cardErr && Array.isArray(cards) && cards.length) {
+          setTarjetas(cards);
+          setSelectedCard(cards[0]);
         } else {
-          setCuenta(row);
+          // demo visual si aún no hay tarjetas
+          const demo = [
+            { id: "demo-1", brand: "Visa", last4: "0000" },
+            { id: "demo-2", brand: "Mastercard", last4: "4067" },
+          ];
+          setTarjetas(demo);
+          setSelectedCard(demo[0]);
         }
       } finally {
         setLoading(false);
@@ -83,13 +110,14 @@ export default function CargarDineroPage() {
     load();
   }, [authLoading, session?.user?.id, supabase]);
 
-  const saldoActual = Number(cuenta?.saldo || 0);
-  const saldoResultante = useMemo(
-    () => (monto > 0 ? saldoActual + monto : saldoActual),
-    [monto, saldoActual]
-  );
+  const canContinueAmount = monto > 0 && monto <= MAX_CARGA;
+  const canSubmit = !saving && canContinueAmount && !!cuenta?.id;
 
-  const setPreset = (n) => setRaw(String(n));
+  const onChangeMonto = (e) => {
+    const onlyDigits = (e.target.value || "").replace(/\D+/g, "");
+    setRaw(onlyDigits);
+    if (error) setError("");
+  };
 
   const validar = () => {
     if (!monto || monto <= 0) return "Ingresá un monto válido.";
@@ -98,43 +126,36 @@ export default function CargarDineroPage() {
     return "";
   };
 
-  const onChangeMonto = (e) => {
-    // Solo dígitos; quitamos separadores/espacios/letras
-    const onlyDigits = (e.target.value || "").replace(/\D+/g, "");
-    setRaw(onlyDigits);
+  const copy = async (text, key) => {
+    try {
+      await navigator.clipboard.writeText(text || "");
+      setCopied(key);
+      setTimeout(() => setCopied(""), 1100);
+    } catch {}
   };
 
-  const canSubmit = !saving && monto > 0 && monto <= MAX_CARGA;
-
-  const onSubmit = async (e) => {
-    e?.preventDefault();
-    if (!cuenta?.id || !session?.user?.id) return;
-
-    const msg = validar();
-    if (msg) {
-      setError(msg);
-      return;
-    }
-
-    if (submitLock.current) return;
+  const confirmarCarga = async () => {
+    if (!canSubmit || submitLock.current) return;
     submitLock.current = true;
-
     setSaving(true);
     setError("");
     try {
-      // ✅ ÚNICA operación: RPC atómica en la DB
       const { data: newSaldo, error: rpcErr } = await supabase.rpc(
         "fn_cargar_dinero",
         { p_cuenta: cuenta.id, p_monto: monto }
       );
       if (rpcErr) throw rpcErr;
 
-      const saldoRef = Number(newSaldo);
-      setCuenta((c) => ({ ...(c || {}), saldo: saldoRef }));
-      setSuccess({ nuevoSaldo: saldoRef, cargo: monto });
-      setRaw(""); // limpiar input
-    } catch (err) {
-      console.error(err);
+      setSuccess({
+        cargo: monto,
+        fecha: new Date(),
+        tarjeta: selectedCard
+          ? `${selectedCard.brand} •••• ${selectedCard.last4}`
+          : null,
+      });
+      setView(VIEW.SUCCESS);
+      setRaw("");
+    } catch (e) {
       setError("No se pudo completar la carga. Intentá nuevamente.");
     } finally {
       setSaving(false);
@@ -142,9 +163,100 @@ export default function CargarDineroPage() {
     }
   };
 
+  // comprobante PNG (usa SOLO tus colores)
+  const descargarComprobante = () => {
+    if (!success) return;
+    const W = 1400,
+      H = 800;
+    const c = document.createElement("canvas");
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext("2d");
+
+    // fondo blanco
+    ctx.fillStyle = WHITE;
+    ctx.fillRect(0, 0, W, H);
+
+    // header lime
+    ctx.fillStyle = getComputedStyle(document.documentElement)
+      .getPropertyValue("--dmh-lime")
+      .trim();
+    roundRect(ctx, 40, 40, W - 80, 120, 20);
+    ctx.fill();
+
+    // círculo check
+    ctx.strokeStyle = getComputedStyle(document.documentElement)
+      .getPropertyValue("--dmh-black")
+      .trim();
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(W / 2, 100, 36, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(W / 2 - 18, 100);
+    ctx.lineTo(W / 2 - 2, 116);
+    ctx.lineTo(W / 2 + 24, 86);
+    ctx.stroke();
+
+    // título
+    ctx.fillStyle = getComputedStyle(document.documentElement)
+      .getPropertyValue("--dmh-black")
+      .trim();
+    ctx.font = "700 42px Poppins, Arial";
+    const header = "Ya cargamos el dinero en tu cuenta";
+    ctx.fillText(header, W / 2 - ctx.measureText(header).width / 2, 124);
+
+    // card oscura
+    ctx.fillStyle = getComputedStyle(document.documentElement)
+      .getPropertyValue("--dmh-black")
+      .trim();
+    roundRect(ctx, 40, 200, W - 80, H - 260, 20);
+    ctx.fill();
+
+    // fecha
+    ctx.fillStyle = "#c9c9c9";
+    ctx.font = "500 26px Poppins, Arial";
+    ctx.fillText(
+      (success.fecha || new Date()).toLocaleString("es-AR", {
+        dateStyle: "long",
+        timeStyle: "short",
+      }),
+      70,
+      260
+    );
+
+    // monto
+    ctx.fillStyle = getComputedStyle(document.documentElement)
+      .getPropertyValue("--dmh-lime")
+      .trim();
+    ctx.font = "800 48px Poppins, Arial";
+    ctx.fillText(fmtMoney(success.cargo), 70, 320);
+
+    // Para / cuenta
+    ctx.fillStyle = "#c9c9c9";
+    ctx.font = "500 22px Poppins, Arial";
+    ctx.fillText("Para", 70, 360);
+    ctx.fillStyle = WHITE;
+    ctx.font = "800 34px Poppins, Arial";
+    ctx.fillText("Cuenta propia", 70, 405);
+
+    // banco + cvu
+    ctx.fillStyle = "#c9c9c9";
+    ctx.font = "600 24px Poppins, Arial";
+    ctx.fillText("Brubank", 70, 450);
+    ctx.font = "500 22px Poppins, Arial";
+    ctx.fillText(`CVU  ${cuenta?.cvu || "0000000000000000000000"}`, 70, 485);
+
+    const url = c.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comprobante-${Date.now()}.png`;
+    a.click();
+  };
+
   if (authLoading || loading) {
     return (
-      <div className="h-[60vh] grid place-items-center text-gray-600">
+      <div className="h-[60vh] grid place-items-center text-white/70">
         Cargando…
       </div>
     );
@@ -152,150 +264,495 @@ export default function CargarDineroPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
-      {/* Header negro con saldo */}
-      <div className="bg-[#1f1f1f] text-white rounded-2xl shadow-md border border-black/20 overflow-hidden">
-        <div className="px-6 py-5 flex items-start justify-between gap-4">
-          <h2
-            className="text-2xl md:text-[28px] font-extrabold"
-            style={{ color: "var(--dmh-lime)" }}
-          >
-            Cargar dinero
-          </h2>
-          <div className="text-right">
-            <p className="text-white/80 text-sm">Saldo disponible</p>
-            <p className="text-[22px] md:text-[24px] font-extrabold">
-              {fmtMoney(saldoActual)}
-            </p>
-          </div>
+      {/* 1) SOLO los dos botones */}
+      {view === VIEW.OPTIONS && (
+        <div className="grid gap-6">
+          <OptionTile
+            title="Transferencia bancaria"
+            onClick={() => setView(VIEW.TRANSFER)}
+          />
+          <OptionTile
+            title="Seleccionar tarjeta"
+            onClick={() => setView(VIEW.CARD_SELECT)}
+            card
+          />
         </div>
-      </div>
+      )}
 
-      {/* Formulario */}
-      <form
-        onSubmit={onSubmit}
-        noValidate
-        autoComplete="off"
-        className="mt-5 bg-white rounded-2xl border border-black/10 shadow-sm overflow-hidden"
-      >
-        <div className="px-6 py-5">
-          <p className="text-gray-800 font-semibold mb-2">Monto a cargar</p>
+      {/* 2) Transferencia: CVU / Alias con copiar */}
+      {view === VIEW.TRANSFER && (
+        <section className="mt-2">
+          <DarkCard>
+            <p className="text-[16px] font-semibold text-white mb-6">
+              Copia tu cvu o alias para ingresar o transferir dinero desde otra
+              cuenta
+            </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
-            {/* Input: pesos enteros con miles en vivo */}
-            <div className="flex items-center rounded-xl border border-[#d8f3d1] focus-within:border-[var(--dmh-lime)] px-4 py-3">
-              <span className="text-gray-600 mr-2">$</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoFocus
-                value={raw ? fmtMiles(raw) : ""}
-                onChange={onChangeMonto}
-                placeholder="0"
-                className="w-full outline-none text-lg text-[#111] placeholder:text-gray-400"
-                aria-label="Monto en pesos"
+            <div className="space-y-9">
+              <FieldCopy
+                label="CVU"
+                value={cuenta?.cvu || "0000000000000000000000"}
+                copied={copied === "cvu"}
+                onCopy={() => copy(cuenta?.cvu, "cvu")}
+              />
+              <FieldCopy
+                label="Alias"
+                value={cuenta?.alias || "estealiasnoexiste"}
+                copied={copied === "alias"}
+                onCopy={() => copy(cuenta?.alias, "alias")}
               />
             </div>
+          </DarkCard>
+        </section>
+      )}
 
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="h-12 rounded-xl font-semibold shadow-md hover:brightness-95 transition disabled:opacity-60"
-              style={{ background: "var(--dmh-lime)", color: "#0f0f0f" }}
+      {/* 3) Selección de tarjeta (idéntico) */}
+      {view === VIEW.CARD_SELECT && (
+        <section className="mt-2">
+          <DarkCard>
+            <h3
+              className="text-[26px] font-extrabold mb-5"
+              style={{ color: LIME }}
             >
-              {saving ? "Cargando…" : "Cargar"}
-            </button>
-          </div>
+              Seleccionar tarjeta
+            </h3>
 
-          {/* Presets (chips) */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {[1000, 5000, 10000, 50000].map((p) => {
-              const active = monto === p;
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPreset(p)}
-                  className={`px-3 py-2 rounded-full text-sm font-semibold border transition
-                    ${
-                      active
-                        ? "bg-[var(--dmh-lime)] border-[var(--dmh-lime)] text-[#0f0f0f] shadow"
-                        : "border-[var(--dmh-lime)] text-[var(--dmh-lime)] hover:bg-[var(--dmh-lime)]/10"
-                    }`}
-                  title={`Usar ${fmtMoney(p)}`}
-                >
-                  {fmtMoney(p)}
-                </button>
-              );
-            })}
-            <span className="ml-auto text-xs text-gray-500">
-              Límite por carga: {fmtMoney(MAX_CARGA)}
-            </span>
-          </div>
+            <div
+              className="rounded-xl p-5 md:p-6 shadow-sm"
+              style={{ background: WHITE }}
+            >
+              <p className="font-semibold text-[15px] text-[color:var(--dmh-black)]">
+                Tus tarjetas
+              </p>
 
-          {/* Preview + errores */}
-          <div className="mt-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-6 text-sm">
-            <div className="text-gray-600">
-              Saldo luego de la carga:&nbsp;
-              <span className="font-semibold text-gray-900">
-                {fmtMoney(saldoResultante)}
-              </span>
+              <div className="mt-3 divide-y">
+                {tarjetas.map((t) => {
+                  const checked = selectedCard?.id === t.id;
+                  return (
+                    <label
+                      key={t.id}
+                      className="flex items-center justify-between gap-4 py-4 cursor-pointer select-none"
+                      onClick={() => setSelectedCard(t)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="inline-block w-7 h-7 rounded-full"
+                          style={{ background: LIME }}
+                        />
+                        <span className="text-[15px]" style={{ color: DARK }}>
+                          Terminada en {t.last4 || "0000"}
+                        </span>
+                      </div>
+
+                      {/* Radio personalizado idéntico */}
+                      <span
+                        className={`relative inline-block w-[18px] h-[18px] rounded-full border ${
+                          checked
+                            ? "border-[color:var(--dmh-black)]"
+                            : "border-[#c9c9c9]"
+                        }`}
+                        aria-checked={checked}
+                        role="radio"
+                      >
+                        {checked && (
+                          <span
+                            className="absolute inset-[3px] rounded-full"
+                            style={{
+                              background: LIME,
+                              outline: `2px solid ${getComputedStyle(
+                                document.documentElement
+                              )
+                                .getPropertyValue("--dmh-black")
+                                .trim()}`,
+                            }}
+                          />
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
-            {error && <div className="text-red-600 font-medium">{error}</div>}
-          </div>
-        </div>
-      </form>
 
-      {/* Éxito */}
-      {success && (
-        <div className="mt-6">
-          <div
-            className="rounded-2xl shadow-md border border-lime-200/40"
-            style={{ background: "var(--dmh-lime)" }}
-          >
-            <div className="px-6 py-6 flex items-center justify-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-black/10 grid place-items-center">
-                <svg width="28" height="28" viewBox="0 0 24 24">
-                  <path
-                    d="m20 6-11 11-5-5"
+            <div className="mt-6 flex items-center justify-between">
+              <Link
+                href="/tarjetas"
+                className="inline-flex items-center gap-2 font-semibold"
+                style={{ color: LIME }}
+              >
+                <span
+                  className="inline-grid place-items-center w-7 h-7 rounded-full border"
+                  style={{ borderColor: LIME }}
+                >
+                  +
+                </span>
+                Nueva tarjeta
+              </Link>
+
+              <button
+                onClick={() => setView(VIEW.CARD_AMOUNT)}
+                className="h-12 px-6 rounded-xl font-semibold shadow"
+                style={{ background: LIME, color: DARK }}
+                disabled={!selectedCard}
+              >
+                Continuar
+              </button>
+            </div>
+          </DarkCard>
+        </section>
+      )}
+
+      {/* 4) Ingresar monto (sin presets) */}
+      {view === VIEW.CARD_AMOUNT && (
+        <section className="mt-2">
+          <DarkCard>
+            <p
+              className="text-[22px] md:text-[24px] font-extrabold mb-6"
+              style={{ color: LIME }}
+            >
+              ¿Cuánto querés ingresar a la cuenta?
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
+              <div
+                className="flex items-center rounded-xl px-4 py-3"
+                style={{ background: "rgba(255,255,255,0.95)" }}
+              >
+                <span className="mr-2" style={{ color: DARK }}>
+                  $
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={raw ? fmtMiles(raw) : ""}
+                  onChange={onChangeMonto}
+                  placeholder="0"
+                  className="w-full outline-none text-lg"
+                  style={{
+                    color: DARK,
+                    background: "transparent",
+                  }}
+                  aria-label="Monto en pesos"
+                />
+              </div>
+
+              <button
+                onClick={() => {
+                  const msg = validar();
+                  if (msg) return setError(msg);
+                  setView(VIEW.CARD_REVIEW);
+                }}
+                disabled={!canContinueAmount}
+                className="h-12 rounded-xl font-semibold shadow"
+                style={{
+                  background: canContinueAmount
+                    ? LIME
+                    : "rgba(255,255,255,0.7)",
+                  color: canContinueAmount ? DARK : "rgba(0,0,0,0.7)",
+                }}
+              >
+                Continuar
+              </button>
+            </div>
+
+            {error && (
+              <div className="mt-3 text-[#ff8a8a] font-medium">{error}</div>
+            )}
+          </DarkCard>
+        </section>
+      )}
+
+      {/* 5) Revisión (idéntico a la imagen) */}
+      {view === VIEW.CARD_REVIEW && (
+        <section className="mt-2">
+          <DarkCard>
+            <h3
+              className="text-[22px] md:text-[24px] font-extrabold mb-6"
+              style={{ color: LIME }}
+            >
+              Revisá que está todo bien
+            </h3>
+
+            <div className="space-y-2 text-white/80">
+              <div className="flex items-center gap-2">
+                <span>Vas a transferir</span>
+                {/* ícono cuadrado con lápiz lime */}
+                <svg width="18" height="18" viewBox="0 0 24 24">
+                  <rect
+                    x="3"
+                    y="3"
+                    width="18"
+                    height="18"
+                    rx="2"
                     fill="none"
-                    stroke="#111"
+                    stroke={LIME}
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M9 15l6-6 2 2-6 6H9v-2z"
+                    fill="none"
+                    stroke={LIME}
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+
+              <div className="text-[22px] font-extrabold text-[color:var(--white)]">
+                {fmtMoney(monto)}
+              </div>
+
+              <div className="mt-5 text-white/60 text-sm">Para</div>
+              <div className="text-white text-xl font-extrabold">
+                Cuenta propia
+              </div>
+
+              <div className="mt-4 text-white">
+                {selectedCard?.brand} •••• {selectedCard?.last4}
+              </div>
+
+              <div className="text-white/60 text-sm mt-5">CVU</div>
+              <div className="text-white/90 tracking-wide">
+                {cuenta?.cvu || "0000000000000000000000"}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={confirmarCarga}
+                disabled={!canSubmit}
+                className="h-12 px-6 rounded-xl font-semibold shadow"
+                style={{
+                  background: canSubmit ? LIME : "rgba(255,255,255,0.7)",
+                  color: canSubmit ? DARK : "rgba(0,0,0,0.7)",
+                }}
+              >
+                {saving ? "Cargando…" : "Continuar"}
+              </button>
+            </div>
+
+            {error && (
+              <div className="mt-3 text-[#ff8a8a] font-medium">{error}</div>
+            )}
+          </DarkCard>
+        </section>
+      )}
+
+      {/* 6) Éxito (idéntico) */}
+      {view === VIEW.SUCCESS && success && (
+        <section className="mt-2">
+          {/* banner lime */}
+          <div className="rounded-2xl shadow-md" style={{ background: LIME }}>
+            <div className="px-6 py-7 flex items-center justify-center gap-4">
+              <div
+                className="w-12 h-12 rounded-full grid place-items-center"
+                style={{ background: "rgba(0,0,0,0.08)" }}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24">
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="11"
+                    fill="none"
+                    stroke={DARK}
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="m7 12 3 3 7-7"
+                    fill="none"
+                    stroke={DARK}
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 </svg>
               </div>
-              <div className="text-center">
-                <p className="text-lg font-extrabold text-[#0f0f0f]">
-                  ¡Cargaste {fmtMoney(success.cargo)}!
-                </p>
-                <p className="text-[#0f0f0f]/80">
-                  Tu nuevo saldo es{" "}
-                  <span className="font-extrabold">
-                    {fmtMoney(success.nuevoSaldo)}
-                  </span>
-                </p>
-              </div>
+              <p className="text-lg font-extrabold" style={{ color: DARK }}>
+                Ya cargamos el dinero en tu cuenta
+              </p>
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Link
-              href="/actividad"
-              className="h-12 rounded-xl bg-white border border-black/10 text-gray-900 font-semibold grid place-items-center hover:bg-black/[.03] shadow-sm"
-            >
-              Ver actividad
-            </Link>
+          {/* card resumen */}
+          <DarkCard className="mt-4">
+            <div className="text-white/70">
+              {success.fecha.toLocaleString("es-AR", {
+                dateStyle: "long",
+                timeStyle: "short",
+              })}
+            </div>
+
+            <div className="mt-2" style={{ color: LIME }}>
+              <span className="text-[26px] font-extrabold">
+                {fmtMoney(success.cargo)}
+              </span>
+            </div>
+
+            <div className="mt-5 text-white/60 text-sm">Para</div>
+            <div className="text-[22px] font-extrabold" style={{ color: LIME }}>
+              Cuenta propia
+            </div>
+
+            <div className="mt-4 text-white">Brubank</div>
+            <div className="text-white/60 text-sm mt-1">CVU</div>
+            <div className="text-white/90 tracking-wide">
+              {cuenta?.cvu || "0000000000000000000000"}
+            </div>
+          </DarkCard>
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Link
               href="/home"
-              className="h-12 rounded-xl font-semibold grid place-items-center hover:brightness-95 shadow"
-              style={{ background: "var(--dmh-lime)", color: "#0f0f0f" }}
+              className="h-12 rounded-xl font-semibold grid place-items-center shadow-sm"
+              style={{ background: "rgba(255,255,255,0.85)", color: DARK }}
             >
               Ir al inicio
             </Link>
+            <button
+              onClick={descargarComprobante}
+              className="h-12 rounded-xl font-semibold grid place-items-center shadow"
+              style={{ background: LIME, color: DARK }}
+            >
+              Descargar comprobante
+            </button>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
+}
+
+/* ---------- Subcomponentes ---------- */
+
+function OptionTile({ title, onClick, card = false }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left rounded-2xl px-6 py-8 shadow-md border transition"
+      style={{ background: DARK, borderColor: "rgba(0,0,0,0.5)" }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <span
+            className="grid place-items-center w-10 h-10 rounded-full border"
+            style={{ borderColor: LIME, color: LIME }}
+          >
+            {card ? (
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <path d="M2 10h20" />
+              </svg>
+            ) : (
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="7" r="4" />
+                <path d="M5.5 21a6.5 6.5 0 0 1 13 0" />
+              </svg>
+            )}
+          </span>
+          <span className="font-semibold text-[18px]" style={{ color: LIME }}>
+            {title}
+          </span>
+        </div>
+        <span className="text-[18px]" style={{ color: LIME }}>
+          →
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function DarkCard({ children, className = "" }) {
+  return (
+    <div
+      className={`rounded-2xl border p-6 md:p-8 ${className}`}
+      style={{
+        background: DARK,
+        borderColor: "rgba(0,0,0,0.35)",
+        color: WHITE,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function FieldCopy({ label, value, onCopy, copied }) {
+  return (
+    <div>
+      <div className="text-[22px] font-extrabold" style={{ color: LIME }}>
+        {label}
+      </div>
+      <div className="flex items-center justify-between mt-1">
+        <p className="text-white/90 tracking-wide text-[15px]">{value}</p>
+        <CopyButton onClick={onCopy} active={copied} />
+      </div>
+    </div>
+  );
+}
+
+function CopyButton({ onClick, active }) {
+  return (
+    <button
+      onClick={onClick}
+      className="grid place-items-center w-9 h-9 rounded-md"
+      style={{ border: `2px solid ${LIME}`, color: LIME }}
+      title={active ? "¡Copiado!" : "Copiar"}
+    >
+      {active ? (
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          fill="none"
+          strokeWidth="2"
+        >
+          <path d="m20 6-11 11-5-5" />
+        </svg>
+      ) : (
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          fill="none"
+          strokeWidth="2"
+        >
+          <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      )}
+    </button>
+  );
+}
+
+/* ---------- util ---------- */
+function roundRect(ctx, x, y, w, h, r) {
+  const radius = typeof r === "number" ? { tl: r, tr: r, br: r, bl: r } : r;
+  ctx.beginPath();
+  ctx.moveTo(x + radius.tl, y);
+  ctx.lineTo(x + w - radius.tr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + radius.tr);
+  ctx.lineTo(x + w, y + h - radius.br);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - radius.br, y + h);
+  ctx.lineTo(x + radius.bl, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - radius.bl);
+  ctx.lineTo(x, y + radius.tl);
+  ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+  ctx.closePath();
 }
