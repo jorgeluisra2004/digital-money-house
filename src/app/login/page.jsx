@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -15,9 +15,6 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 const emailSchema = z.object({ email: z.string().email("Correo inválido") });
 const passwordSchema = z.object({
   password: z.string().min(6, "Mínimo 6 caracteres"),
-});
-const codeSchema = z.object({
-  code: z.string().regex(/^\d{6}$/, "El código debe tener 6 dígitos"),
 });
 
 /** Page: solo define el Suspense y renderiza el cliente */
@@ -40,26 +37,13 @@ function LoginClient() {
   const supabase = getSupabaseClient();
   const router = useRouter();
 
-  const [step, setStep] = useState(1); // 1=email, 2=password, 3=código
+  const [step, setStep] = useState(1); // 1=email, 2=password
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [pwd, setPwd] = useState("");
-  const [firstLogin, setFirstLogin] = useState(false);
   const [serverError, setServerError] = useState(""); // muestra debajo del campo
-  const [resendCooldown, setResendCooldown] = useState(0);
 
   const emailForm = useForm({ resolver: zodResolver(emailSchema) });
   const passwordForm = useForm({ resolver: zodResolver(passwordSchema) });
-  const codeForm = useForm({ resolver: zodResolver(codeSchema) });
-
-  useEffect(() => {
-    if (!resendCooldown) return;
-    const t = setInterval(
-      () => setResendCooldown((s) => (s > 0 ? s - 1 : 0)),
-      1000
-    );
-    return () => clearInterval(t);
-  }, [resendCooldown]);
 
   /* -------- Paso 1: sólo email -------- */
   const handleEmailSubmit = async (data) => {
@@ -79,7 +63,6 @@ function LoginClient() {
         setServerError("No existe una cuenta con ese e-mail.");
         return;
       }
-      setFirstLogin(Boolean(result.firstLogin));
       setStep(2);
     } catch (err) {
       setServerError(err.message || "Error");
@@ -88,11 +71,12 @@ function LoginClient() {
     }
   };
 
-  /* -------- Paso 2: password -------- */
+  /* -------- Paso 2: password (sin código por e-mail) -------- */
   const handlePasswordSubmit = async (data) => {
     setLoading(true);
     setServerError("");
     try {
+      // Validación propia en backend (usuarios + hash)
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,73 +85,17 @@ function LoginClient() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.message || "Error al iniciar sesión");
 
-      if (result.needsVerification) {
-        setPwd(data.password);
-        toast.success("Contraseña correcta. Te enviamos un código 📧");
-        if (typeof result.retryAfter === "number")
-          setResendCooldown(result.retryAfter);
-        setStep(3);
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password: data.password,
-        });
-        if (error) throw error;
-        toast.success("Login exitoso 🎉");
-        router.push("/home");
-      }
-    } catch (err) {
-      setServerError(err.message || "Error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* -------- Paso 3: verificar código -------- */
-  const handleCodeSubmit = async (data) => {
-    setLoading(true);
-    setServerError("");
-    try {
-      const res = await fetch("/api/verify-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code: data.code }),
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message || "Código incorrecto");
-
+      // Luego autenticamos en Supabase (Auth)
       const { error } = await supabase.auth.signInWithPassword({
         email,
-        password: pwd,
+        password: data.password,
       });
       if (error) throw error;
 
-      toast.success("Código verificado. Bienvenido 🎉");
+      toast.success("Login exitoso 🎉");
       router.push("/home");
     } catch (err) {
       setServerError(err.message || "Error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* -------- Reenviar código -------- */
-  const handleResend = async () => {
-    if (resendCooldown > 0) return;
-    setLoading(true);
-    try {
-      const res = await fetch("/api/resend-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const result = await res.json();
-      if (!res.ok)
-        throw new Error(result.message || "No se pudo reenviar el código");
-      toast.success("Te enviamos un nuevo código 📧");
-      setResendCooldown(result.retryAfter || 60);
-    } catch (err) {
-      toast.error(err.message || "Error reenviando el código");
     } finally {
       setLoading(false);
     }
@@ -237,11 +165,6 @@ function LoginClient() {
               <h2 className="text-base font-semibold mb-2 text-white">
                 Ingresá tu contraseña
               </h2>
-              <p className="text-sm text-gray-400 mb-1">
-                {firstLogin
-                  ? "Es tu primer ingreso: después de la contraseña te pediremos un código."
-                  : "Ingresá tu contraseña para continuar."}
-              </p>
 
               <input
                 type="password"
@@ -264,7 +187,7 @@ function LoginClient() {
                   disabled={loading}
                   className="w-full py-3 rounded-lg font-semibold bg-[var(--dmh-lime)] hover:bg-[var(--dmh-lime-dark)] text-black transition shadow-md disabled:opacity-60"
                 >
-                  {loading ? "Verificando..." : "Continuar"}
+                  {loading ? "Verificando..." : "Iniciar sesión"}
                 </button>
                 <button
                   type="button"
@@ -275,76 +198,6 @@ function LoginClient() {
                   className="w-full py-3 rounded-lg font-medium bg-transparent border border-gray-600 text-white"
                 >
                   Volver
-                </button>
-              </div>
-            </motion.form>
-          )}
-
-          {step === 3 && (
-            <motion.form
-              key="step3"
-              onSubmit={codeForm.handleSubmit(handleCodeSubmit)}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -30 }}
-              transition={{ duration: 0.25 }}
-              className="flex flex-col items-center gap-3"
-            >
-              <h2 className="text-base font-semibold mb-2 text-white">
-                Ingresá el código que te enviamos
-              </h2>
-              <p className="text-sm text-gray-400 mb-1">
-                Revisá tu correo ({email}). El código vence en 10 minutos.
-              </p>
-
-              <input
-                inputMode="numeric"
-                maxLength={6}
-                pattern="\d{6}"
-                type="text"
-                placeholder="Código de 6 dígitos"
-                {...codeForm.register("code")}
-                className="w-full p-3 rounded-lg text-black bg-white focus:outline-none focus:ring-2 focus:ring-[var(--dmh-lime)] tracking-widest text-center"
-              />
-              {codeForm.formState.errors.code && (
-                <p className="text-red-500 text-sm">
-                  {codeForm.formState.errors.code.message}
-                </p>
-              )}
-              {serverError && (
-                <p className="text-red-500 text-sm">{serverError}</p>
-              )}
-
-              <div className="w-full flex items-center justify-between text-xs text-gray-300">
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={loading || resendCooldown > 0}
-                  className="underline disabled:opacity-50"
-                >
-                  {resendCooldown > 0
-                    ? `Reenviar código (${resendCooldown}s)`
-                    : "Reenviar código"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setServerError("");
-                    setStep(2);
-                  }}
-                  className="underline"
-                >
-                  Volver
-                </button>
-              </div>
-
-              <div className="w-full flex flex-col gap-2 mt-1">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 rounded-lg font-semibold bg-[var(--dmh-lime)] hover:bg-[var(--dmh-lime-dark)] text-black transition shadow-md disabled:opacity-60"
-                >
-                  {loading ? "Verificando..." : "Verificar"}
                 </button>
               </div>
             </motion.form>

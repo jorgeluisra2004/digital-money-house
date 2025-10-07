@@ -28,7 +28,7 @@ export default function DashboardSidebar() {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await logout?.();
     } finally {
       router.replace("/");
       router.refresh();
@@ -38,14 +38,18 @@ export default function DashboardSidebar() {
   return (
     <aside
       aria-label="Sidebar"
-      className="hidden md:block fixed left-0 top-16 bottom-0 w-[280px] z-30 overflow-y-auto overscroll-contain border-r"
+      // 👇 SIEMPRE visible (sin 'hidden md:block'), z-index alto y sin que nada lo tape
+      className="fixed left-0 top-16 bottom-0 w-[280px] z-50 overflow-y-auto border-r pointer-events-auto"
       style={{
         background: LIME,
         borderRightColor: "rgba(0,0,0,.20)",
       }}
     >
-      <nav className="px-6 py-6">
-        {/* 🔹 Navegación */}
+      <nav
+        className="px-6 py-6"
+        role="navigation"
+        aria-label="Navegación principal"
+      >
         <ul className="space-y-3">
           {NAV.map((item) => {
             const active = isActive(item.href);
