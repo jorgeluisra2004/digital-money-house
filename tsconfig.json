@@ -38,7 +38,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     ".next/types/**/*.ts"
-  ],
+, "src/lib/isE2E.js"  ],
   "exclude": [
     "node_modules",
     "test",
