@@ -5,19 +5,20 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 
 const proveedores = [
-  { slug: "claro", nombre: "Claro", logo: "/providers/claro.svg" },
-  { slug: "personal", nombre: "Personal", logo: "/providers/personal.svg" },
+  { slug: "claro", nombre: "Claro", logo: "/images/claro.webp" },
+  { slug: "personal", nombre: "Personal", logo: "/images/personal.webp" },
   {
     slug: "cablevision",
     nombre: "Cablevisión",
-    logo: "/providers/cablevision.svg",
+    logo: "/images/cablevision.webp",
   },
-  { slug: "claro-2", nombre: "Claro", logo: "/providers/claro.svg" },
-  { slug: "personal-2", nombre: "Personal", logo: "/providers/personal.svg" },
+  // opcionales para completar la grilla
+  { slug: "claro-2", nombre: "Claro", logo: "/images/claro.webp" },
+  { slug: "personal-2", nombre: "Personal", logo: "/images/personal.webp" },
   {
     slug: "cablevision-2",
     nombre: "Cablevisión",
-    logo: "/providers/cablevision.svg",
+    logo: "/images/cablevision.webp",
   },
 ];
 
@@ -59,7 +60,7 @@ export default function PagarServiciosPage() {
         </div>
       </div>
 
-      {/* Lista (sin paginar) */}
+      {/* Lista */}
       <div className="bg-white rounded-2xl border border-black/10 shadow-sm overflow-hidden">
         <div className="px-5 py-4 font-semibold text-gray-800">
           Más recientes
@@ -69,7 +70,6 @@ export default function PagarServiciosPage() {
             <li key={i} className="px-5">
               <div className="py-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-4 min-w-0">
-                  {/* logo (si no existe, oculto la imagen y queda el texto) */}
                   <div className="shrink-0 w-[64px] h-[28px] relative">
                     <Image
                       src={p.logo}
@@ -77,6 +77,7 @@ export default function PagarServiciosPage() {
                       fill
                       className="object-contain"
                       onError={(e) => {
+                        // si llegase a fallar la imagen, ocultamos el tag
                         e.currentTarget.style.display = "none";
                       }}
                     />

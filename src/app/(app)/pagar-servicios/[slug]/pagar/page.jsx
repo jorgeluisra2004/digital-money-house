@@ -1,4 +1,3 @@
-// /src/app/pagar-servicios/[slug]/pagar/page.jsx
 "use client";
 
 import Link from "next/link";
@@ -32,17 +31,16 @@ export default function PagarMediosPage() {
 
   const userId = session?.user?.id || (isE2E() ? "e2e-user" : null);
 
-  // Normal: usa medios_pago del usuario. Fallback: tarjetas (para que E2E no se rompa)
   useEffect(() => {
     const load = async () => {
       if ((!isE2E() && authLoading) || !userId) return;
       setLoading(true);
       try {
-        // 1) Intentar medios_pago
+        // 1) Primero: medios_pago del usuario actual
         const { data: mp } = await supabase
           .from("medios_pago")
           .select(
-            "id, tipo, numero_mascarado, banco, fecha_vencimiento, created_at"
+            "id, usuario_id, tipo, numero_mascarado, banco, fecha_vencimiento, created_at"
           )
           .eq("usuario_id", userId)
           .order("created_at", { ascending: false });
@@ -50,15 +48,17 @@ export default function PagarMediosPage() {
         let list = [];
         if (Array.isArray(mp) && mp.length) {
           list = mp.map((c) => {
-            const digits = String(c?.numero_mascarado || "").replace(/\D/g, "");
-            const l4 =
-              digits.slice(-4) || String(c?.numero_mascarado || "").slice(-4);
-            const brand =
-              (c?.tipo || c?.banco || "").toString().trim() || "Tarjeta";
-            return { id: c.id, brand, last4: l4 };
+            const raw = String(c?.numero_mascarado || "");
+            const digits = raw.replace(/\D/g, "");
+            const last4 = (digits || raw).slice(-4);
+            return {
+              id: c.id,
+              brand: (c?.tipo || c?.banco || "Tarjeta").toString(),
+              last4,
+            };
           });
         } else {
-          // 2) Fallback a tarjetas (soporte E2E/stubs)
+          // 2) Fallback para entorno E2E/stubs
           const { data: t } = await supabase
             .from("tarjetas")
             .select("id, brand, last4")
@@ -82,7 +82,7 @@ export default function PagarMediosPage() {
     load();
   }, [authLoading, userId, supabase]);
 
-  // Reglas de fallo para simular rechazo (coincide con stubs E2E)
+  // Simulación de rechazo (coincide con stubs E2E)
   const shouldFail = (card) => {
     const l4 = String(card?.last4 || "");
     return l4 === "0000" || l4 === "4067";
@@ -101,7 +101,7 @@ export default function PagarMediosPage() {
       return;
     }
 
-    // ÉXITO → comprobante
+    // Éxito → comprobante
     const params = new URLSearchParams({
       m: String(monto),
       deName: "Mauricio Brito",
@@ -126,7 +126,7 @@ export default function PagarMediosPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
       <div className="bg-[#202124] text-white rounded-2xl shadow-sm border border-black/20 overflow-hidden">
-        {/* Header oscuro como la maqueta */}
+        {/* Header */}
         <div className="px-6 py-5 flex items-start justify-between">
           <div>
             <div className="text-[22px] font-extrabold" style={{ color: LIME }}>
@@ -145,7 +145,7 @@ export default function PagarMediosPage() {
           </div>
         </div>
 
-        {/* Tarjetas guardadas (único medio de pago en este sprint) */}
+        {/* Tarjetas guardadas */}
         <div className="bg-white text-black">
           <div className="px-6 pt-5 font-semibold">Tus tarjetas</div>
 
