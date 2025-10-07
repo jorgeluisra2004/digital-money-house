@@ -1,7 +1,7 @@
 
 # 💳 Digital Money House — Web Wallet Platform
 
-> **Digital Money House (DMH)** is a modern digital wallet built with **Next.js 15+**, **TailwindCSS**, and **Supabase**.  
+> **Digital Money House (DMH)** is a digital wallet built with **Next.js 15+**, **TailwindCSS**, and **Supabase**.  
 > It includes secure authentication, account balances, transaction activity, payments, and integrated dashboards for a complete financial experience.
 
 ---
@@ -220,43 +220,6 @@ docker run -p 3000:3000   -e NEXT_PUBLIC_SUPABASE_URL=...   -e NEXT_PUBLIC_SUPAB
 
 ## 👥 Authors
 
-**Imnoba / Digital Money House Team**  
-Front‑end: Jorge Rodriguez  
-Infrastructure & QA: DMH DevOps Unit
+Jorge Luis Rodriguez  
 
 ---
-
-## 🪪 License
-
-This project is part of the **Digital Money House** ecosystem by **Imnoba**.  
-All rights reserved © 2025. Reproduction or redistribution is prohibited without authorization.
-
----
-
-## 🗺️ Architecture Overview
-
-```
-┌────────────────────────────────────────────┐
-│                  Frontend                  │
-│  Next.js (App Router) + Tailwind + Motion  │
-│        ↕ AuthContext + Supabase SDK        │
-├────────────────────────────────────────────┤
-│               Backend (Supabase)           │
-│  PostgreSQL + Auth + Storage + RLS         │
-├────────────────────────────────────────────┤
-│                 QA Layer                   │
-│ Playwright (E2E) + Jest + Selenium (Java)  │
-├────────────────────────────────────────────┤
-│               Deployment Layer             │
-│ Docker → GitLab CI → Vercel                │
-└────────────────────────────────────────────┘
-```
-
----
-
-## 📞 Support
-
-For technical issues or contribution requests, contact:  
-📧 **dev@digitalmoneyhouse.app**  
-🌐 [https://digitalmoneyhouse.app](https://digitalmoneyhouse.app)
-
