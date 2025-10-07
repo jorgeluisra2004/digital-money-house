@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
+import { isE2E } from "@/lib/isE2E";
 
 /* ---------------- utils ---------------- */
 const MAX_CARDS = 10;
@@ -122,7 +123,7 @@ function CardPreview({ number, name, expiry }) {
 /* ---------------- page ---------------- */
 export default function TarjetasPage() {
   const supabase = getSupabaseClient();
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -148,23 +149,26 @@ export default function TarjetasPage() {
       ? "AMEX"
       : "Desconocida";
 
-  // cargar listado
+  const userId = session?.user?.id || (isE2E() ? "e2e-user" : null);
+
+  // cargar listado SOLO del usuario actual
   useEffect(() => {
     const fetchCards = async () => {
-      if (!session?.user?.id) return;
+      if ((!isE2E() && authLoading) || !userId) return;
       setLoadingList(true);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("medios_pago")
         .select(
-          "id, tipo, numero_mascarado, banco, fecha_vencimiento, created_at"
+          "id, usuario_id, tipo, numero_mascarado, banco, fecha_vencimiento, created_at"
         )
-        .eq("usuario_id", session.user.id)
+        .eq("usuario_id", userId)
         .order("created_at", { ascending: false });
-      setCards(data || []);
+
+      setCards(Array.isArray(data) ? data : []);
       setLoadingList(false);
     };
     fetchCards();
-  }, [session?.user?.id, supabase]);
+  }, [authLoading, userId, supabase]);
 
   // leer modo desde la URL (?alta=1)
   useEffect(() => {
@@ -185,7 +189,7 @@ export default function TarjetasPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!session?.user?.id) return;
+    if (!userId) return;
     if (cards.length >= MAX_CARDS) {
       alert(`Llegaste al máximo de ${MAX_CARDS} tarjetas.`);
       return;
@@ -219,7 +223,7 @@ export default function TarjetasPage() {
 
       const { error } = await supabase.from("medios_pago").insert([
         {
-          usuario_id: session.user.id,
+          usuario_id: userId,
           tipo: brandName.toLowerCase(), // visa | mastercard | amex
           numero_mascarado: mask,
           banco: brandStr,
@@ -234,16 +238,16 @@ export default function TarjetasPage() {
       setName("");
       setCvv("");
 
-      // refresh lista
+      // refresh lista del usuario
       const { data } = await supabase
         .from("medios_pago")
         .select(
-          "id, tipo, numero_mascarado, banco, fecha_vencimiento, created_at"
+          "id, usuario_id, tipo, numero_mascarado, banco, fecha_vencimiento, created_at"
         )
-        .eq("usuario_id", session.user.id)
+        .eq("usuario_id", userId)
         .order("created_at", { ascending: false });
-      setCards(data || []);
 
+      setCards(Array.isArray(data) ? data : []);
       backToList();
     } catch (err) {
       console.error(err);
@@ -254,8 +258,13 @@ export default function TarjetasPage() {
   };
 
   const handleDelete = async (id) => {
+    if (!id) return;
     if (!confirm("¿Eliminar esta tarjeta?")) return;
-    await supabase.from("medios_pago").delete().eq("id", id);
+    await supabase
+      .from("medios_pago")
+      .delete()
+      .eq("id", id)
+      .eq("usuario_id", userId);
     setCards((prev) => prev.filter((c) => c.id !== id));
   };
 
@@ -388,7 +397,7 @@ export default function TarjetasPage() {
             </div>
           )}
 
-          {/* Listado */}
+          {/* Listado sólo del usuario */}
           <div className="bg-white rounded-xl shadow border border-black/10">
             <div className="px-6 py-4 font-semibold text-black">
               Tus tarjetas

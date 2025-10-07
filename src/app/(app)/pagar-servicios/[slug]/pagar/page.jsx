@@ -1,3 +1,4 @@
+// /src/app/pagar-servicios/[slug]/pagar/page.jsx
 "use client";
 
 import Link from "next/link";
@@ -42,15 +43,9 @@ export default function PagarMediosPage() {
           .eq("usuario_id", userId)
           .order("id", { ascending: true });
 
-        // Demo por si no hay tarjetas en la DB del entorno
-        const demo = [
-          { id: "demo-1", brand: "Visa", last4: "4067" },
-          { id: "demo-2", brand: "Mastercard", last4: "8040" },
-          { id: "demo-3", brand: "Visa", last4: "9006" },
-        ];
-        const list = Array.isArray(t) && t.length ? t : demo;
+        const list = Array.isArray(t) ? t : [];
         setCards(list);
-        setSelectedCard(list[0]);
+        setSelectedCard(list[0] || null);
       } finally {
         setLoading(false);
       }
@@ -58,13 +53,44 @@ export default function PagarMediosPage() {
     load();
   }, [authLoading, userId, supabase]);
 
+  const shouldFail = (card) => {
+    const last4 = String(card?.last4 || "");
+    return last4 === "0000" || last4 === "4067";
+  };
+
   const pagarConTarjeta = () => {
     if (!selectedCard) return;
+
+    // siempre preservamos query params usados por los tests y pantallas
     const qp = new URLSearchParams();
     if (cta) qp.set("cta", cta);
     if (monto) qp.set("m", String(monto));
     if (isE2E()) qp.set("e2e", "1");
-    router.push(`/pagar-servicios/${slug}/tarjeta-error?${qp.toString()}`);
+
+    if (shouldFail(selectedCard)) {
+      router.push(`/pagar-servicios/${slug}/tarjeta-error?${qp.toString()}`);
+      return;
+    }
+
+    // Caso ÉXITO → reutilizamos comprobante
+    const params = new URLSearchParams({
+      m: String(monto),
+      // datos de comprobante (mock de negocio)
+      deName: "Mauricio Brito",
+      deCvu: "0000031000047630488114",
+      toName: `Servicio ${String(slug || "").replace(/-/g, " ")}`,
+      toBank: "Banco Galicia",
+      toDoc: cta || "000013912847500027631",
+      toType: "Cuenta de terceros",
+      motivo: "Pago de servicio",
+      cod: String(27900000000 + Math.floor(Math.random() * 999999)).slice(
+        0,
+        11
+      ),
+    });
+    if (isE2E()) params.set("e2e", "1");
+
+    router.push(`/pagar-servicios/${slug}/exito?${params.toString()}`);
   };
 
   const nombreProveedor = String(slug || "").replace(/-/g, " ");
@@ -140,6 +166,11 @@ export default function PagarMediosPage() {
                   </label>
                 );
               })}
+              {cards.length === 0 && (
+                <div className="px-4 py-6 text-sm text-black/60">
+                  No tenés tarjetas guardadas todavía.
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between mt-4">
