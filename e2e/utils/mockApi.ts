@@ -14,7 +14,6 @@ export async function freezeTime(
       const OriginalDate = Date as unknown as typeof Date;
       const fixedMs = new OriginalDate(ts).getTime();
 
-      // @ts-ignore - reimplementamos Date con la misma interfaz pública
       class FixedDate extends OriginalDate {
         constructor(...args: any[]) {
           // Sin argumentos => devolver la fecha fija
@@ -60,7 +59,7 @@ export async function freezeTime(
       }
 
       // Reemplazamos Date global (mantiene prototipo)
-      // @ts-ignore
+      // @ts-expect-error Asignación intencional al global
       window.Date = FixedDate;
     },
     { ts: iso }
@@ -83,7 +82,7 @@ export async function stubSupabaseActividad(page: Page) {
         usuario_id: "e2e-user",
         fecha: "2022-08-06T10:00:00-03:00",
         monto: -1265.57,
-        descripcion: "Transfereriste a Consorcio",
+        descripcion: "Transferiste a Consorcio",
       },
       {
         id: 3,
@@ -100,26 +99,33 @@ export async function stubSupabaseActividad(page: Page) {
         descripcion: "Te transfirieron dinero",
       },
     ];
-    route.fulfill({ json: data });
+    route.fulfill({ status: 200, json: data });
   });
 }
 
+/**
+ * Stub específico para el flujo de "Cargar dinero"
+ */
 export async function stubSupabaseCarga(page: Page) {
   // tarjetas
   await page.route(/\/rest\/v1\/tarjetas/i, (route) =>
     route.fulfill({
+      status: 200,
       json: [
         { id: "1", brand: "Visa", last4: "0000" },
         { id: "2", brand: "Mastercard", last4: "4067" },
       ],
     })
   );
+
   // cuenta
   await page.route(/\/rest\/v1\/cuentas/i, (route) =>
     route.fulfill({
+      status: 200,
       json: [
         {
           id: 99,
+          usuario_id: "e2e-user",
           saldo: 1500,
           cvu: "0000002100075990000000",
           alias: "estealiasnoexiste",
@@ -127,8 +133,78 @@ export async function stubSupabaseCarga(page: Page) {
       ],
     })
   );
-  // rpc cargar
+
+  // rpc cargar dinero
   await page.route(/\/rpc\/fn_cargar_dinero/i, (route) =>
-    route.fulfill({ json: 1800 })
+    route.fulfill({ status: 200, json: 1800 })
   );
+}
+
+/**
+ * Stub genérico de cuentas + tarjetas para flujos de "Pagar servicios".
+ * Permite configurar el saldo y el set de tarjetas.
+ */
+export async function stubSupabaseCuentasTarjetas(
+  page: Page,
+  opts?: {
+    saldo?: number;
+    tarjetas?: Array<{ id: string; brand: string; last4: string }>;
+  }
+) {
+  const saldo = opts?.saldo ?? 300000;
+  const tarjetas = opts?.tarjetas ?? [
+    { id: "stub-1", brand: "Visa", last4: "4067" },
+    { id: "stub-2", brand: "Mastercard", last4: "8040" },
+    { id: "stub-3", brand: "Visa", last4: "9006" },
+  ];
+
+  // cuentas (GET/POST)
+  await page.route(/\/rest\/v1\/cuentas/i, async (route) => {
+    const method = route.request().method();
+    if (method === "GET") {
+      return route.fulfill({
+        status: 200,
+        json: [
+          {
+            id: "acc-1",
+            usuario_id: "e2e-user",
+            saldo,
+            cvu: "",
+            alias: "",
+          },
+        ],
+      });
+    }
+    if (method === "POST") {
+      return route.fulfill({
+        status: 201,
+        json: [
+          {
+            id: "acc-1",
+            usuario_id: "e2e-user",
+            saldo: 0,
+            cvu: "",
+            alias: "",
+          },
+        ],
+      });
+    }
+    return route.continue();
+  });
+
+  // tarjetas (GET)
+  await page.route(/\/rest\/v1\/tarjetas/i, async (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        json: tarjetas,
+      });
+    }
+    return route.continue();
+  });
+
+  // Evita errores para cualquier RPC que se dispare de fondo
+  await page.route(/\/rest\/v1\/rpc\/.*/i, async (route) => {
+    return route.fulfill({ status: 200, json: [] });
+  });
 }
