@@ -32,18 +32,47 @@ export default function PagarMediosPage() {
 
   const userId = session?.user?.id || (isE2E() ? "e2e-user" : null);
 
+  // Normal: usa medios_pago del usuario. Fallback: tarjetas (para que E2E no se rompa)
   useEffect(() => {
     const load = async () => {
       if ((!isE2E() && authLoading) || !userId) return;
       setLoading(true);
       try {
-        const { data: t } = await supabase
-          .from("tarjetas")
-          .select("id, brand, last4")
+        // 1) Intentar medios_pago
+        const { data: mp } = await supabase
+          .from("medios_pago")
+          .select(
+            "id, tipo, numero_mascarado, banco, fecha_vencimiento, created_at"
+          )
           .eq("usuario_id", userId)
-          .order("id", { ascending: true });
+          .order("created_at", { ascending: false });
 
-        const list = Array.isArray(t) ? t : [];
+        let list = [];
+        if (Array.isArray(mp) && mp.length) {
+          list = mp.map((c) => {
+            const digits = String(c?.numero_mascarado || "").replace(/\D/g, "");
+            const l4 =
+              digits.slice(-4) || String(c?.numero_mascarado || "").slice(-4);
+            const brand =
+              (c?.tipo || c?.banco || "").toString().trim() || "Tarjeta";
+            return { id: c.id, brand, last4: l4 };
+          });
+        } else {
+          // 2) Fallback a tarjetas (soporte E2E/stubs)
+          const { data: t } = await supabase
+            .from("tarjetas")
+            .select("id, brand, last4")
+            .eq("usuario_id", userId)
+            .order("id", { ascending: true });
+          if (Array.isArray(t) && t.length) {
+            list = t.map((x) => ({
+              id: x.id,
+              brand: x.brand || "Tarjeta",
+              last4: String(x.last4 || "").slice(-4),
+            }));
+          }
+        }
+
         setCards(list);
         setSelectedCard(list[0] || null);
       } finally {
@@ -53,15 +82,15 @@ export default function PagarMediosPage() {
     load();
   }, [authLoading, userId, supabase]);
 
+  // Reglas de fallo para simular rechazo (coincide con stubs E2E)
   const shouldFail = (card) => {
-    const last4 = String(card?.last4 || "");
-    return last4 === "0000" || last4 === "4067";
+    const l4 = String(card?.last4 || "");
+    return l4 === "0000" || l4 === "4067";
   };
 
   const pagarConTarjeta = () => {
     if (!selectedCard) return;
 
-    // siempre preservamos query params usados por los tests y pantallas
     const qp = new URLSearchParams();
     if (cta) qp.set("cta", cta);
     if (monto) qp.set("m", String(monto));
@@ -72,10 +101,9 @@ export default function PagarMediosPage() {
       return;
     }
 
-    // Caso ÉXITO → reutilizamos comprobante
+    // ÉXITO → comprobante
     const params = new URLSearchParams({
       m: String(monto),
-      // datos de comprobante (mock de negocio)
       deName: "Mauricio Brito",
       deCvu: "0000031000047630488114",
       toName: `Servicio ${String(slug || "").replace(/-/g, " ")}`,
