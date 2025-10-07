@@ -1,0 +1,32 @@
+ID,Título,Módulo,Tipo (Smoke/Regression),Prioridad,Precondiciones,Pasos,Datos de prueba,Resultado esperado,Notas
+S3-MAN-01,Abrir /actividad muestra 'Tu actividad' y listado inicial,Actividad,Smoke,Alta,Usuario autenticado (o modo E2E habilitado),"1) Ir a /actividad
+2) Esperar carga",-,Se visualiza el título 'Tu actividad' y una lista de movimientos (o 'No hay movimientos' si vacío).,
+S3-MAN-02,Abrir Popover de filtros y cerrarlo con overlay,Actividad,Smoke,Media,Listado visible,"1) Click en 'Filtrar'
+2) Click en overlay oscuro",-,El popover se muestra y luego se cierra al hacer click fuera.,
+S3-MAN-03,Cerrar Popover con tecla ESC,Actividad,Regression,Media,Popover de filtros abierto,1) Presionar 'Escape',-,El popover se cierra.,
+S3-MAN-04,Seleccionar 'Último año' y aplicar,Actividad,Smoke,Alta,Popover abierto,"1) Seleccionar 'Último año'
+2) Click 'Aplicar'",-,"El popover se cierra, el listado se filtra por el último año, y la URL refleja period=ultimo_anio.",
+S3-MAN-05,Abrir 'Otro período' y filtrar por rango custom,Actividad,Regression,Alta,Popover abierto,"1) Click 'Otro período'
+2) Setear 'Desde' y 'Hasta'
+3) 'Aplicar'","Desde: 2024-01-01, Hasta: 2024-12-31 (ejemplo)",El listado sólo muestra movimientos dentro del rango. La URL contiene from y to.,
+S3-MAN-06,Cambiar operación a 'Ingresos',Actividad,Smoke,Media,Popover abierto,"1) Click 'Ingresos'
+2) 'Aplicar'",-,Se muestran únicamente montos positivos. La URL incluye op=ingresos.,
+S3-MAN-07,Cambiar operación a 'Egresos',Actividad,Regression,Media,Popover abierto,"1) Click 'Egresos'
+2) 'Aplicar'",-,Se muestran únicamente montos negativos. La URL incluye op=egresos.,
+S3-MAN-08,Buscar por texto en input y confirmar con Enter,Actividad,Smoke,Alta,Listado visible,"1) Escribir término en input
+2) Presionar Enter",Texto: 'ingresaste' (ejemplo),El listado se filtra por el término; la URL incluye q=<término>.,
+S3-MAN-09,Limpiar todos los filtros desde 'Borrar filtros',Actividad,Regression,Media,Popover abierto con filtros activos,1) Click 'Borrar filtros',-,Se limpian query params y vuelve el listado completo.,
+S3-MAN-10,Paginación: navegar a página 2 y volver a 1,Actividad,Regression,Media,Listado con más de 10 ítems (pageSize=10),"1) Click '2'
+2) Click '1'",-,Se actualiza el grupo mostrado; el botón de página activa tiene fondo gris (#e9e9e9 aprox.).,"Si no hay más de una página, validar que la paginación no se muestre."
+S3-MAN-11,Persistencia visual: hover en ítems y estados activos,Actividad,Regression,Baja,Listado visible,"1) Pasar mouse sobre un ítem
+2) Observar cambios visuales",-,Se aplica hover sutil (bg negra al 2%). No hay saltos de layout.,
+S3-MAN-12,Orden por fecha descendente,Actividad,Regression,Alta,Listado con varios días distintos,1) Observar orden,-,Los más recientes arriba (fecha desc).,
+S3-MAN-13,Abrir modal de detalle y cerrar con '✕',Actividad,Smoke,Media,Listado visible,"1) Click en un ítem
+2) Cerrar con botón '✕'",-,Se ve el detalle con campos formateados y cierra correctamente.,
+S3-MAN-14,Cerrar modal de detalle haciendo click en overlay,Actividad,Regression,Media,Modal de detalle abierto,1) Click fuera del modal,-,El modal se cierra.,
+S3-MAN-15,Formato de monto con moneda ARS,Actividad,Regression,Media,Ítem con monto positivo y negativo,1) Observar montos,-,"Formato ARS correcto, signo negativo sólo para egresos.",
+S3-MAN-16,Formato de día (weekday largo) en ítems,Actividad,Regression,Baja,Ítem con fecha válida,1) Observar leyenda de fecha,-,"Se muestra día de la semana en español (ej: lunes, martes).",
+S3-MAN-17,Accesibilidad: labels y roles básicos en filtros,Actividad,Regression,Media,Popover abierto,"1) Verificar aria-label 'Filtrar'
+2) Roles 'radio' en opciones",-,Botón 'Filtrar' tiene aria-label; radios exponen aria-checked.,
+S3-MAN-18,Bloqueo de scroll al abrir popover,Actividad,Regression,Baja,Página con scroll,"1) Abrir filtros
+2) Intentar scroll en body",-,El body queda sin scroll mientras el popover está abierto.,
