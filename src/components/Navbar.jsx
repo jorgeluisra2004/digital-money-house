@@ -55,7 +55,6 @@ export default function Navbar() {
         {/* Derecha desktop */}
         <div className="hidden md:flex items-center">
           {isLogged ? (
-            // 🔹 NOMBRE + INICIALES → Link a /home
             <Link
               href="/home"
               data-testid="navbar-user-greeting"
@@ -97,7 +96,6 @@ export default function Navbar() {
         {/* Derecha móvil */}
         <div className="flex items-center gap-2 md:hidden">
           {isLogged ? (
-            // 🔹 INICIALES → Link a /home
             <Link
               href="/home"
               aria-label="Ir al Dashboard"

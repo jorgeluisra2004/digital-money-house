@@ -150,7 +150,6 @@ export default function TransferirPage() {
     setSaving(true);
     setError("");
     try {
-      // ✅ ÚNICA operación: RPC atómica en la DB
       const { data: newSaldo, error: rpcErr } = await supabase.rpc(
         "fn_transferir_dinero",
         {

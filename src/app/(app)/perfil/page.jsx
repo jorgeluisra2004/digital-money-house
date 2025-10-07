@@ -204,7 +204,6 @@ export default function PerfilPage() {
 
   const telValido = (t) => !t || /^[0-9+\-()\s]{6,20}$/.test(t);
 
-  // ✅ Alias: exactamente 3 palabras (letras/números) separadas por puntos => x.x.x
   const alias3Words = (a) => /^[a-z0-9]+(\.[a-z0-9]+){2}$/.test(a || "");
   const aliasValido = (a) => {
     const s = (a || "").toLowerCase();

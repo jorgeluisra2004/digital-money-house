@@ -1,12 +1,9 @@
-// e2e/actividad.spec.ts
 import { test, expect } from "@playwright/test";
 import { freezeTime, stubSupabaseActividad } from "./utils/mockApi";
-
-// Viewport estable
 test.use({ viewport: { width: 1280, height: 720 } });
 
 test.beforeEach(async ({ page }) => {
-  // Fuerza modo E2E y apaga ruidos visuales
+  
   await page.addInitScript(() => {
     // @ts-ignore
     window.__E2E__ = true;
@@ -30,13 +27,11 @@ test.beforeEach(async ({ page }) => {
 test("Actividad: listado, filtros y paginación idénticos", async ({ page }) => {
   await page.goto("/actividad?e2e=1", { waitUntil: "domcontentloaded" });
 
-  // Asegura que cargó la sección
-  await expect(page.getByText("Tu actividad").first()).toBeVisible();
+  // Asegura que cargó la sección (acepta "Tu actividad")
+  await expect(page.getByText(/^tu actividad$/i).first()).toBeVisible();
 
   // --- CARD: fijar tamaño inline para snapshot 972x516 ---
-  const card = page
-    .locator("div.rounded-2xl.border", { hasText: "Tu actividad" })
-    .first();
+  let card = page.locator("div.bg-white.rounded-2xl.border").first();
   await expect(card).toBeVisible();
   await card.evaluate((el) => {
     const st = el as HTMLElement;
@@ -77,12 +72,7 @@ test("Actividad: listado, filtros y paginación idénticos", async ({ page }) =>
   await page.keyboard.press("Enter");
 
   // --- Paginación robusta ---
-  // Si tras los filtros no hay más de una página, la UI esconde el paginador.
-  // Intentamos ampliar el resultado quitando el término de búsqueda;
-  // si aún así no hay paginación, verificamos explícitamente que esté oculta.
   const page2Btn = page.getByRole("button", { name: /^2$/ });
-
-  // Espera breve a ver si aparece la paginación con los filtros actuales
   const hasPage2Initially = (await page2Btn.count()) > 0;
 
   if (!hasPage2Initially) {
@@ -94,12 +84,10 @@ test("Actividad: listado, filtros y paginación idénticos", async ({ page }) =>
   const hasPagination = (await page2Btn.count()) > 0;
 
   if (hasPagination) {
-    // Con paginación visible, el botón "1" activo debe tener el fondo gris ~#e9e9e9
     const active = page.getByRole("button", { name: /^1$/ }).first();
     await expect(active).toBeVisible();
     await expect(active).toHaveCSS("background-color", "rgb(233, 233, 233)");
   } else {
-    // Sin paginación (solo 1 página), confirmamos que no exista botón "1"
     await expect(page.getByRole("button", { name: /^1$/ })).toHaveCount(0);
   }
 });

@@ -98,12 +98,6 @@ public class TarjetasPage {
         return this;
     }
 
-    /**
-     * En algunos tests llaman este assert ANTES de tipear el número; el UI
-     * muestra “Desconocida”. Para que no falle por timing, validamos
-     * visibilidad y, si se pidió una marca concreta, lo intentamos unos
-     * segundos pero SIN tirar Timeout si aún no coincide.
-     */
     public TarjetasPage assertBrandShown(String expectedBrand) {
         // 1) El bloque debe estar visible
         WebElement info = wait.until(ExpectedConditions.visibilityOfElementLocated(BRAND_INFO));

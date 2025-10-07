@@ -1,13 +1,20 @@
+# Node/Next
 node_modules
-.next
+.next/cache
+.next/trace
+.next/static/**/*.map
 out
+dist
+
+# VCS/IDE
 .git
 .gitignore
-.vercel
-coverage
-Dockerfile
-docker-compose.yml
-docker-compose.prod.yml
-npm-debug.log*
-yarn*.log
-pnpm-lock.yaml
+.vscode
+.idea
+
+# OS
+.DS_Store
+
+# Tests / Playwright
+test-results
+playwright-report

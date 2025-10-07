@@ -56,7 +56,6 @@ test("Pago con tarjeta → muestra error idéntico y permite reintentar", async 
   await page.getByTestId("ident-input").fill("37289701912");
   await page.getByTestId("ident-continue").click();
 
-  // ⬅️ El fallo original se debía a que no esperábamos la navegación
   await page.waitForURL(/\/pagar-servicios\/cablevision\/pagar/i);
 
   // 2) Cabecera visible (total a pagar / UI del paso)

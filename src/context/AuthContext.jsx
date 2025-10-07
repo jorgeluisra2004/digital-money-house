@@ -128,7 +128,6 @@ export function AuthProvider({ children }) {
       try {
         const e2eNow = isE2E();
         if (e2eNow) {
-          // ✅ En E2E no llamamos a Supabase: sesión inmediata
           await applySession(fakeE2ESession);
         } else {
           // Fuera de E2E, intentamos rehidratar sesión real con timeout
@@ -214,7 +213,6 @@ export function AuthProvider({ children }) {
       if (!isE2E()) await supabase.auth.signOut();
     } finally {
       clearAuthStorage();
-      // 🔒 Desactiva cualquier bandera E2E para no re-autologuear al fake user
       try {
         document.cookie = "dmh_e2e=; Max-Age=0; path=/";
         document.cookie = "dmh_e2e_off=1; Max-Age=31536000; path=/"; // 1 año

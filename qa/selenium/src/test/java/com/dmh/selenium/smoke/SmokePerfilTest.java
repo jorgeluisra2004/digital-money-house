@@ -13,7 +13,7 @@ public class SmokePerfilTest extends BaseTest {
         new LoginPage(driver, wait, baseUrl)
                 .login(System.getProperty("E2E_EMAIL"), System.getProperty("E2E_PASSWORD"));
         PerfilPage perfil = new PerfilPage(driver);
-        perfil.open();                // <--- CAMBIADO
+        perfil.open();
         perfil.editAlias("uno.dos.tres");
         perfil.copyBoth();
     }

@@ -72,7 +72,6 @@ export default function Hero() {
     <section
       className="relative isolate overflow-hidden"
       style={{
-        // ⚠️ usar HEIGHT (no minHeight) para que el hero llegue justo hasta el footer
         height: "calc(100dvh - var(--header-h, 64px) - var(--footer-h, 48px))",
         ["--header-h"]: "64px",
         ["--footer-h"]: "48px",

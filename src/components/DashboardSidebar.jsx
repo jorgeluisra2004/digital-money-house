@@ -38,7 +38,6 @@ export default function DashboardSidebar() {
   return (
     <aside
       aria-label="Sidebar"
-      // 👇 SIEMPRE visible (sin 'hidden md:block'), z-index alto y sin que nada lo tape
       className="fixed left-0 top-16 bottom-0 w-[280px] z-50 overflow-y-auto border-r pointer-events-auto"
       style={{
         background: LIME,

@@ -19,7 +19,7 @@
     },
     "types": [
       "node"
-    ] // ⬅️ no agregues "jest" acá
+    ]
     ,
     "allowJs": true,
     "skipLibCheck": true,

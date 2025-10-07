@@ -66,7 +66,6 @@ export default function CargarDineroPage() {
   const [success, setSuccess] = useState(null);
   const submitLock = useRef(false);
 
-  // ⬇️ Bypass real de auth para E2E aunque authLoading siga true
   useEffect(() => {
     if (isE2E()) {
       setLoading(false);

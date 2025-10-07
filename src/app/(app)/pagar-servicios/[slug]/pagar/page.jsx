@@ -36,7 +36,7 @@ export default function PagarMediosPage() {
       if ((!isE2E() && authLoading) || !userId) return;
       setLoading(true);
       try {
-        // 1) Primero: medios_pago del usuario actual
+        // 1) Traer medios de pago reales del usuario (tabla medios_pago)
         const { data: mp } = await supabase
           .from("medios_pago")
           .select(
@@ -58,7 +58,7 @@ export default function PagarMediosPage() {
             };
           });
         } else {
-          // 2) Fallback para entorno E2E/stubs
+          // 2) Fallback (para entornos E2E/stubs) => tabla tarjetas
           const { data: t } = await supabase
             .from("tarjetas")
             .select("id, brand, last4")
@@ -88,7 +88,8 @@ export default function PagarMediosPage() {
     return l4 === "0000" || l4 === "4067";
   };
 
-  const pagarConTarjeta = () => {
+  // Ahora el comprobante usa datos reales del usuario (usuarios/cuentas)
+  const pagarConTarjeta = async () => {
     if (!selectedCard) return;
 
     const qp = new URLSearchParams();
@@ -101,11 +102,46 @@ export default function PagarMediosPage() {
       return;
     }
 
-    // Éxito → comprobante
+    // --- Datos reales del usuario ---
+    let deName = "";
+    let deCvu = "";
+
+    try {
+      if (userId) {
+        const { data: userRow } = await supabase
+          .from("usuarios")
+          .select("nombre, apellido")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (userRow) {
+          deName = [userRow.nombre, userRow.apellido]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+        }
+
+        const { data: cuentaRow } = await supabase
+          .from("cuentas")
+          .select("cvu")
+          .eq("usuario_id", userId)
+          .maybeSingle();
+
+        if (cuentaRow?.cvu) deCvu = cuentaRow.cvu;
+      }
+    } catch {
+      // si hay algún problema de lectura (RLS/otros), caemos a los fallbacks
+    }
+
+    // Fallbacks para no romper en E2E/ambientes vacíos
+    if (!deName) deName = "Mauricio Brito";
+    if (!deCvu) deCvu = "0000031000047630488114";
+
+    // Éxito → comprobante con datos reales
     const params = new URLSearchParams({
       m: String(monto),
-      deName: "Mauricio Brito",
-      deCvu: "0000031000047630488114",
+      deName,
+      deCvu,
       toName: `Servicio ${String(slug || "").replace(/-/g, " ")}`,
       toBank: "Banco Galicia",
       toDoc: cta || "000013912847500027631",

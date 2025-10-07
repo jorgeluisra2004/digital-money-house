@@ -70,7 +70,6 @@ export default function HomePage() {
           .eq("usuario_id", session.user.id)
           .limit(1);
 
-        // ✅ Traemos ya ordenados y LIMIT 10 (criterio del sprint)
         const { data: movs } = await supabase
           .from("movimientos")
           .select("*")
@@ -88,7 +87,6 @@ export default function HomePage() {
     load();
   }, [authLoading, session?.user?.id, supabase]);
 
-  // 🔗 Navegación a /actividad con (o sin) filtro
   const goActividad = () => {
     const q = query.trim();
     router.push(q ? `/actividad?q=${encodeURIComponent(q)}` : "/actividad");
@@ -169,7 +167,7 @@ export default function HomePage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") goActividad(); // ✅ Enter → /actividad?q=...
+              if (e.key === "Enter") goActividad();
             }}
             className="w-full py-2 outline-none text-black placeholder:text-gray-400"
             placeholder="Buscar en tu actividad (Enter para ver todo con filtro)"
@@ -246,14 +244,6 @@ export default function HomePage() {
               />
             </svg>
           </button>
-
-          {/* Link simple por si preferís mantenerlo también */}
-          <Link
-            href="/actividad"
-            className="text-sm font-semibold text-gray-800 hover:underline"
-          >
-            Ir a actividad
-          </Link>
         </div>
       </motion.div>
     </div>

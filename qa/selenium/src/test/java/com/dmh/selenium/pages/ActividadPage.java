@@ -83,7 +83,6 @@ public class ActividadPage {
     }
 
     public ActividadPage openFilters() {
-        // Hay más de un botón “Filtrar”; elegir el visible
         By FILTRAR = By.xpath("//button[normalize-space()='Filtrar' or contains(.,'Filtrar')]");
         waitUntilClickable(FILTRAR).click();
         wait.until(ExpectedConditions.visibilityOfElementLocated(BTN_APPLY));

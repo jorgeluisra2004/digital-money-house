@@ -39,7 +39,6 @@ function makeSSRStub() {
 
   // Builder por tabla
   const table = {
-    // 👇 NO async: debe devolver el builder para poder encadenar .eq().single()
     select() {
       return filter;
     },

@@ -8,7 +8,6 @@ export const metadata = {
   description: "Billetera virtual",
 };
 
-// 👇 agrega esto
 export const viewport = {
   width: "device-width",
   initialScale: 1,

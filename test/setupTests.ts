@@ -1,7 +1,5 @@
 // Matchers
 import "@testing-library/jest-dom";
-
-// 👇 importante: importá los globals de Jest
 import { jest, beforeAll, afterAll } from "@jest/globals";
 
 // Polyfills...
